@@ -203,12 +203,12 @@
             [self append:@"edit: unsafe or missing path\n"];
         } else {
             BOOL isDirectory = NO;
-            if ([[NSFileManager defaultManager] fileExistsAtPath:@(host)
+            if ([[NSFileManager defaultManager] fileExistsAtPath:[NSString stringWithUTF8String:host]
                                                       isDirectory:&isDirectory] && isDirectory) {
                 [self append:@"edit: cannot edit a directory\n"];
             } else {
                 ZUEditorController *editor = [ZUEditorController new];
-                editor.path = @(host);
+                editor.path = [NSString stringWithUTF8String:host];
                 UINavigationController *nav = [[UINavigationController alloc]
                     initWithRootViewController:editor];
                 nav.modalPresentationStyle = UIModalPresentationFullScreen;
