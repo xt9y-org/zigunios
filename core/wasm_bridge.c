@@ -3,6 +3,7 @@
 
 #include <wasm3.h>
 #include <m3_api_wasi.h>
+#include <m3_exception.h>
 
 #include <errno.h>
 #include <pthread.h>
