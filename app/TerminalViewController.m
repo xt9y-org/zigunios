@@ -3,6 +3,78 @@
 #import "shell.h"
 #import "git_bridge.h"
 
+// Minimal native source editor, no embedded web view or external app.
+@interface ZUEditorController : UIViewController
+@property (nonatomic, copy) NSString *path;
+@property (nonatomic, strong) UITextView *editor;
+@end
+
+@implementation ZUEditorController
+
+- (void)viewDidLoad
+{
+    [super viewDidLoad];
+    self.title = self.path.lastPathComponent;
+    self.view.backgroundColor = [UIColor colorWithRed:0.045 green:0.061 blue:0.082 alpha:1];
+    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc]
+        initWithBarButtonSystemItem:UIBarButtonSystemItemCancel
+                            target:self action:@selector(closeEditor)];
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
+        initWithBarButtonSystemItem:UIBarButtonSystemItemSave
+                            target:self action:@selector(saveEditor)];
+    self.editor = [[UITextView alloc] init];
+    self.editor.translatesAutoresizingMaskIntoConstraints = NO;
+    self.editor.backgroundColor = UIColor.clearColor;
+    self.editor.textColor = UIColor.whiteColor;
+    self.editor.tintColor = [UIColor systemGreenColor];
+    self.editor.font = [UIFont monospacedSystemFontOfSize:14 weight:UIFontWeightRegular];
+    self.editor.autocorrectionType = UITextAutocorrectionTypeNo;
+    self.editor.autocapitalizationType = UITextAutocapitalizationTypeNone;
+    self.editor.smartQuotesType = UITextSmartQuotesTypeNo;
+    self.editor.smartDashesType = UITextSmartDashesTypeNo;
+    self.editor.smartInsertDeleteType = UITextSmartInsertDeleteTypeNo;
+    NSError *error = nil;
+    NSString *content = [NSString stringWithContentsOfFile:self.path
+                                                  encoding:NSUTF8StringEncoding
+                                                     error:&error];
+    if (error && [[NSFileManager defaultManager] fileExistsAtPath:self.path]) {
+        self.editor.editable = NO;
+        self.editor.text = [NSString stringWithFormat:@"Unable to open file as UTF-8: %@", error.localizedDescription];
+    } else {
+        self.editor.text = content ?: @"";
+    }
+    [self.view addSubview:self.editor];
+    UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
+    [NSLayoutConstraint activateConstraints:@[
+        [self.editor.topAnchor constraintEqualToAnchor:safe.topAnchor constant:8],
+        [self.editor.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:12],
+        [self.editor.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-12],
+        [self.editor.bottomAnchor constraintEqualToAnchor:self.view.keyboardLayoutGuide.topAnchor constant:-8]
+    ]];
+}
+
+- (void)closeEditor
+{
+    [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+- (void)saveEditor
+{
+    if (!self.editor.editable) return;
+    NSError *error = nil;
+    if ([self.editor.text writeToFile:self.path
+                          atomically:YES encoding:NSUTF8StringEncoding error:&error]) {
+        [self dismissViewControllerAnimated:YES completion:nil];
+    } else {
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Save failed"
+                                       message:error.localizedDescription
+                                preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:alert animated:YES completion:nil];
+    }
+}
+@end
+
 @interface TerminalViewController : UIViewController <UITextFieldDelegate, UIDocumentPickerDelegate>
 @property (nonatomic, strong) UITextView *transcript;
 @property (nonatomic, strong) UILabel *prompt;
@@ -123,6 +195,29 @@
     if (!_ready || !self.input.enabled) return NO;
     NSString *command = [textField.text copy] ?: @"";
     if (!command.length) return YES;
+    if ([command hasPrefix:@"edit "]) {
+        NSString *name = [[command substringFromIndex:5]
+            stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+        char guest[ZU_PATH_MAX], host[ZU_PATH_MAX];
+        if (!name.length || !zu_shell_resolve_path(&_shell, name.UTF8String, guest, host)) {
+            [self append:@"edit: unsafe or missing path\n"];
+        } else {
+            BOOL isDirectory = NO;
+            if ([[NSFileManager defaultManager] fileExistsAtPath:@(host)
+                                                      isDirectory:&isDirectory] && isDirectory) {
+                [self append:@"edit: cannot edit a directory\n"];
+            } else {
+                ZUEditorController *editor = [ZUEditorController new];
+                editor.path = @(host);
+                UINavigationController *nav = [[UINavigationController alloc]
+                    initWithRootViewController:editor];
+                nav.modalPresentationStyle = UIModalPresentationFullScreen;
+                [self presentViewController:nav animated:YES completion:nil];
+            }
+        }
+        textField.text = @"";
+        return YES;
+    }
     [self append:[NSString stringWithFormat:@"%@ %@\n", self.prompt.text, command]];
     textField.text = @"";
     self.input.enabled = NO;
