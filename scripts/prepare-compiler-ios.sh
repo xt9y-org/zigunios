@@ -51,4 +51,15 @@ if [ ! -f "$SYSROOT/include/stdio.h" ]; then
         exit 1
     fi
 fi
+# Clang's standard builtins (stdarg.h, stddef.h, etc.) are not part of
+# wasi-libc's sysroot. Bundle host compiler-resource headers for C programs.
+# This header compatibility needs physical-device validation with Clang 14.
+BUILTINS="$DEST/clang-include"
+if [ ! -f "$BUILTINS/stdarg.h" ]; then
+    HOST_RESOURCES="$(xcrun clang -print-resource-dir)"
+    test -f "$HOST_RESOURCES/include/stdarg.h"
+    mkdir -p "$BUILTINS"
+    cp -R "$HOST_RESOURCES/include/." "$BUILTINS/"
+fi
+
 echo "iOS Clang/LLD and wasm32-wasi sysroot ready."
