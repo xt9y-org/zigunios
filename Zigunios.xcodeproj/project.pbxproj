@@ -17,6 +17,7 @@
         A00000000000000000000009 = {isa = PBXBuildFile; fileRef = A00000000000000000000019; };
         A0000000000000000000000A = {isa = PBXBuildFile; fileRef = A0000000000000000000001C; };
         A0000000000000000000000B = {isa = PBXBuildFile; fileRef = A0000000000000000000001E; };
+        A0000000000000000000000C = {isa = PBXBuildFile; fileRef = A00000000000000000000041; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -36,6 +37,8 @@
         A0000000000000000000001D = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = git_bridge.h; sourceTree = "<group>"; };
         A0000000000000000000001E = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = wasm_bridge.c; sourceTree = "<group>"; };
         A0000000000000000000001F = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = wasm_bridge.h; sourceTree = "<group>"; };
+        A00000000000000000000041 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = project.c; sourceTree = "<group>"; };
+        A00000000000000000000042 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = project.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -65,7 +68,7 @@
             name = core;
             path = core;
             sourceTree = "<group>";
-            children = (A0000000000000000000001B, A00000000000000000000015, A0000000000000000000001C, A0000000000000000000001D, A0000000000000000000001E, A0000000000000000000001F, );
+            children = (A0000000000000000000001B, A00000000000000000000015, A0000000000000000000001C, A0000000000000000000001D, A0000000000000000000001E, A0000000000000000000001F, A00000000000000000000041, A00000000000000000000042, );
         };
         A00000000000000000000024 = {
             isa = PBXGroup;
@@ -124,7 +127,7 @@
         A00000000000000000000026 = {
             isa = PBXSourcesBuildPhase;
             buildActionMask = 2147483647;
-            files = (A00000000000000000000001, A00000000000000000000002, A00000000000000000000003, A00000000000000000000004, A00000000000000000000005, A0000000000000000000000A, A0000000000000000000000B, );
+            files = (A00000000000000000000001, A00000000000000000000002, A00000000000000000000003, A00000000000000000000004, A00000000000000000000005, A0000000000000000000000A, A0000000000000000000000B, A0000000000000000000000C, );
             runOnlyForDeploymentPostprocessing = 0;
         };
 /* End PBXSourcesBuildPhase section */
@@ -166,8 +169,8 @@
                 OTHER_LDFLAGS = ("$(inherited)", "$(SRCROOT)/vendor/libgit2-ios/lib/libgit2.a", "$(SRCROOT)/vendor/wasm3-ios/lib/libm3.a", "-framework", "Security", "-framework", "CoreFoundation", "-framework", "MetalKit", "-framework", "Metal", "-lz", "-liconv", );
                 TARGETED_DEVICE_FAMILY = 2;
                 IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-                MARKETING_VERSION = 0.3.0;
-                CURRENT_PROJECT_VERSION = 3;
+                MARKETING_VERSION = 0.4.0;
+                CURRENT_PROJECT_VERSION = 4;
                 ENABLE_BITCODE = NO;
             };
             name = Debug;
@@ -184,8 +187,8 @@
                 OTHER_LDFLAGS = ("$(inherited)", "$(SRCROOT)/vendor/libgit2-ios/lib/libgit2.a", "$(SRCROOT)/vendor/wasm3-ios/lib/libm3.a", "-framework", "Security", "-framework", "CoreFoundation", "-framework", "MetalKit", "-framework", "Metal", "-lz", "-liconv", );
                 TARGETED_DEVICE_FAMILY = 2;
                 IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-                MARKETING_VERSION = 0.3.0;
-                CURRENT_PROJECT_VERSION = 3;
+                MARKETING_VERSION = 0.4.0;
+                CURRENT_PROJECT_VERSION = 4;
                 ENABLE_BITCODE = NO;
             };
             name = Release;
