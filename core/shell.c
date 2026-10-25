@@ -65,6 +65,13 @@ const char *zu_shell_cwd(const ZUShell *shell)
     return shell->cwd;
 }
 
+void zu_shell_set_external(ZUShell *shell, ZUExternalCommand callback, void *context)
+{
+    if (!shell) return;
+    shell->external = callback;
+    shell->external_context = context;
+}
+
 /* Normalize .. in the virtual filesystem, never allowing escape above /. */
 static int resolve(const ZUShell *shell, const char *input, char *guest, char *host)
 {
@@ -113,6 +120,12 @@ static int resolve(const ZUShell *shell, const char *input, char *guest, char *h
         p += amount;
     }
     return 1;
+}
+
+int zu_shell_resolve_path(const ZUShell *shell, const char *input,
+                          char *guest, char *host)
+{
+    return shell && guest && host && resolve(shell, input, guest, host);
 }
 
 /* Tokens: whitespace, quotes and simple escapes. No pipes/expansion yet. */
@@ -167,10 +180,11 @@ char *zu_shell_execute(ZUShell *shell, const char *line, int *clear_screen)
 
     if (!strcmp(cmd, "help")) {
         say(&out, "Zigunios v0.1 — local sandbox shell\n"
-                  "  pwd cd ls mkdir touch cat echo rm rmdir clear\n"
-                  "  uname whoami date help\n"
+                  "  pwd cd ls mkdir touch cat echo rm rmdir cp mv clear\n"
+                  "  grep head wc uname whoami date help\n"
+                  "  git clone/status/log/branch/fetch (HTTPS)\n"
                   "  echo text > file   (or >> to append)\n"
-                  "No external processes, pipes, Git, Zig or C compiler yet.\n");
+                  "No external processes, pipes, Zig or C compiler yet.\n");
     } else if (!strcmp(cmd, "pwd")) {
         say(&out, "%s\n", shell->cwd);
     } else if (!strcmp(cmd, "cd")) {
@@ -252,6 +266,83 @@ char *zu_shell_execute(ZUShell *shell, const char *line, int *clear_screen)
             if (!file) say(&out, "echo: %s\n", strerror(errno));
             else { fprintf(file, "%s\n", message); fclose(file); }
         }
+    } else if (!strcmp(cmd, "cp") || !strcmp(cmd, "mv")) {
+        if (argc != 3) say(&out, "%s: expected source and destination\n", cmd);
+        else {
+            char from_guest[ZU_PATH_MAX], from_host[ZU_PATH_MAX];
+            if (path_for(shell, args[1], from_guest, from_host, &out) &&
+                path_for(shell, args[2], guest, host, &out)) {
+                struct stat st;
+                if (lstat(from_host, &st) != 0 || !S_ISREG(st.st_mode)) {
+                    say(&out, "%s: source must be a regular file\n", cmd);
+                } else if (!strcmp(cmd, "mv")) {
+                    if (rename(from_host, host) != 0) say(&out, "mv: %s\n", strerror(errno));
+                } else {
+                    FILE *source = fopen(from_host, "rb");
+                    FILE *dest = source ? fopen(host, "wb") : NULL;
+                    if (!dest) say(&out, "cp: %s\n", strerror(errno));
+                    else {
+                        char buf[8192]; size_t size; int ok = 1;
+                        while ((size = fread(buf, 1, sizeof(buf), source)) > 0)
+                            if (fwrite(buf, 1, size, dest) != size) { ok = 0; break; }
+                        if (ferror(source)) ok = 0;
+                        if (fclose(dest) != 0) ok = 0;
+                        if (!ok) say(&out, "cp: I/O error\n");
+                    }
+                    if (source) fclose(source);
+                }
+            }
+        }
+    } else if (!strcmp(cmd, "head") || !strcmp(cmd, "grep") || !strcmp(cmd, "wc")) {
+        const char *path = NULL;
+        const char *needle = NULL;
+        int max_lines = 10;
+        if (!strcmp(cmd, "grep")) {
+            if (argc != 3) say(&out, "usage: grep PATTERN FILE\n");
+            else { needle = args[1]; path = args[2]; }
+        } else if (!strcmp(cmd, "head")) {
+            if (argc == 2) path = args[1];
+            else if (argc == 4 && !strcmp(args[1], "-n")) {
+                max_lines = atoi(args[2]);
+                path = args[3];
+            } else say(&out, "usage: head [-n NUMBER] FILE\n");
+            if (max_lines < 0 || max_lines > 10000) path = NULL;
+        } else {
+            if (argc == 2) path = args[1];
+            else say(&out, "usage: wc FILE\n");
+        }
+        if (path && path_for(shell, path, guest, host, &out)) {
+            FILE *file = fopen(host, "rb");
+            if (!file) say(&out, "%s: %s\n", cmd, strerror(errno));
+            else {
+                if (!strcmp(cmd, "wc")) {
+                    unsigned long long bytes = 0, lines = 0, words = 0;
+                    int prev_space = 1, c;
+                    while ((c = fgetc(file)) != EOF) {
+                        bytes++; if (c == '\n') lines++;
+                        int space = c == ' ' || c == '\n' || c == '\t' || c == '\r';
+                        if (!space && prev_space) words++;
+                        prev_space = space;
+                    }
+                    say(&out, "%llu %llu %llu %s\n", lines, words, bytes, path);
+                } else {
+                    char *line_buf = NULL;
+                    size_t capacity = 0;
+                    ssize_t length; int shown = 0;
+                    while ((length = getline(&line_buf, &capacity, file)) != -1) {
+                        if (!strcmp(cmd, "grep") && !strstr(line_buf, needle)) continue;
+                        if (!strcmp(cmd, "head") && shown >= max_lines) break;
+                        if (out.length + (size_t)length >= ZU_OUTPUT_MAX - 128) {
+                            say(&out, "\n(output truncated)\n"); break;
+                        }
+                        say(&out, "%s", line_buf);
+                        shown++;
+                    }
+                    free(line_buf);
+                }
+                fclose(file);
+            }
+        }
     } else if (!strcmp(cmd, "clear")) {
         if (clear_screen) *clear_screen = 1;
     } else if (!strcmp(cmd, "uname")) {
@@ -264,8 +355,15 @@ char *zu_shell_execute(ZUShell *shell, const char *line, int *clear_screen)
         struct tm tm_value;
         if (localtime_r(&now, &tm_value) && strftime(formatted, sizeof(formatted), "%Y-%m-%d %H:%M:%S %Z", &tm_value))
             say(&out, "%s\n", formatted);
-    } else if (!strcmp(cmd, "git") || !strcmp(cmd, "zig") || !strcmp(cmd, "c") || !strcmp(cmd, "make") || !strcmp(cmd, "cmake")) {
-        say(&out, "%s: toolchain not integrated yet (see docs/ARCHITECTURE.md)\n", cmd);
+    } else if (!strcmp(cmd, "git") && shell->external) {
+        const char *argv[ZU_WORDS];
+        for (int i = 0; i < argc; i++) argv[i] = args[i];
+        char *answer = shell->external(shell->external_context, shell, argc, argv);
+        free(args);
+        free(out.data);
+        return answer ? answer : strdup("git: out of memory or internal error\n");
+    } else if (!strcmp(cmd, "zig") || !strcmp(cmd, "c") || !strcmp(cmd, "make") || !strcmp(cmd, "cmake")) {
+        say(&out, "%s: local compiler/process runtime is not implemented\n", cmd);
     } else {
         say(&out, "%s: command not found\n", cmd);
     }
