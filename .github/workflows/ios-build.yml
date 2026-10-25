@@ -865,6 +865,9 @@ jobs:
       - name: Prepare libgit2 for iPad
         run: bash scripts/build-libgit2-ios.sh
 
+      - name: Prepare wasm3 interpreter for iPad
+        run: bash scripts/build-wasm3-ios.sh
+
       - name: Build IPA
         env:
           BUILD_ID: ${{ steps.params.outputs.build_id }}
