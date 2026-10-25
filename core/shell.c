@@ -179,12 +179,13 @@ char *zu_shell_execute(ZUShell *shell, const char *line, int *clear_screen)
     char guest[ZU_PATH_MAX], host[ZU_PATH_MAX];
 
     if (!strcmp(cmd, "help")) {
-        say(&out, "Zigunios v0.1 — local sandbox shell\n"
+        say(&out, "Zigunios v0.4 — iPad workspace\n"
                   "  pwd cd ls mkdir touch cat echo rm rmdir cp mv clear\n"
                   "  grep head wc uname whoami date help\n"
-                  "  git clone/status/log/branch/fetch (HTTPS)\n"
+                  "  git clone --branch/--depth, submodule update, status\n"
+                  "  project inspect, wasm FILE.wasm\n"
                   "  echo text > file   (or >> to append)\n"
-                  "No external processes, pipes, Zig or C compiler yet.\n");
+                  "Zig CC / CMake / arbitrary POSIX processes are not yet available.\n");
     } else if (!strcmp(cmd, "pwd")) {
         say(&out, "%s\n", shell->cwd);
     } else if (!strcmp(cmd, "cd")) {
@@ -355,13 +356,13 @@ char *zu_shell_execute(ZUShell *shell, const char *line, int *clear_screen)
         struct tm tm_value;
         if (localtime_r(&now, &tm_value) && strftime(formatted, sizeof(formatted), "%Y-%m-%d %H:%M:%S %Z", &tm_value))
             say(&out, "%s\n", formatted);
-    } else if ((!strcmp(cmd, "git") || !strcmp(cmd, "wasm")) && shell->external) {
+    } else if ((!strcmp(cmd, "git") || !strcmp(cmd, "wasm") || !strcmp(cmd, "project")) && shell->external) {
         const char *argv[ZU_WORDS];
         for (int i = 0; i < argc; i++) argv[i] = args[i];
         char *answer = shell->external(shell->external_context, shell, argc, argv);
         free(args);
         free(out.data);
-        return answer ? answer : strdup("git: out of memory or internal error\n");
+        return answer ? answer : strdup("tool: out of memory or internal error\n");
     } else if (!strcmp(cmd, "zig") || !strcmp(cmd, "c") || !strcmp(cmd, "make") || !strcmp(cmd, "cmake")) {
         say(&out, "%s: local compiler/process runtime is not implemented\n", cmd);
     } else {
