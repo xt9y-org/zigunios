@@ -128,6 +128,35 @@ int zu_shell_resolve_path(const ZUShell *shell, const char *input,
     return shell && guest && host && resolve(shell, input, guest, host);
 }
 
+/* mkdir -p within the app sandbox, with symlink checks at every component. */
+static int make_parents(const ZUShell *shell, const char *guest)
+{
+    char partial[ZU_PATH_MAX];
+    if (snprintf(partial, sizeof(partial), "%s", shell->root) >= (int)sizeof(partial))
+        return -1;
+    const char *p = guest;
+    while (*p) {
+        while (*p == '/') p++;
+        if (!*p) break;
+        const char *end = strchr(p, '/');
+        size_t count = end ? (size_t)(end - p) : strlen(p);
+        size_t len = strlen(partial);
+        if (len + count + 2 >= sizeof(partial)) return -1;
+        partial[len++] = '/';
+        memcpy(partial + len, p, count);
+        partial[len + count] = 0;
+        struct stat st;
+        if (lstat(partial, &st)) {
+            if (mkdir(partial, 0755)) return -1;
+        } else if (!S_ISDIR(st.st_mode) || S_ISLNK(st.st_mode)) {
+            errno = ENOTDIR;
+            return -1;
+        }
+        p += count;
+    }
+    return 0;
+}
+
 /* Tokens: whitespace, quotes and simple escapes. No pipes/expansion yet. */
 static int tokenize(const char *line, char words[ZU_WORDS][ZU_PATH_MAX], Output *out)
 {
@@ -219,12 +248,17 @@ char *zu_shell_execute(ZUShell *shell, const char *line, int *clear_screen)
             }
         }
     } else if (!strcmp(cmd, "mkdir") || !strcmp(cmd, "touch") || !strcmp(cmd, "rm") || !strcmp(cmd, "rmdir")) {
-        if (argc == 1) say(&out, "%s: missing path\n", cmd);
-        for (int i = 1; i < argc; i++) {
+        int recursive = !strcmp(cmd, "mkdir") && argc > 1 && !strcmp(args[1], "-p");
+        int first = recursive ? 2 : 1;
+        if (argc <= first) say(&out, "%s: missing path\n", cmd);
+        for (int i = first; i < argc; i++) {
             if (!path_for(shell, args[i], guest, host, &out)) continue;
-            if (!strcmp(guest, "/")) { say(&out, "%s: cannot modify /\n", cmd); continue; }
+            if (!strcmp(guest, "/")) {
+                if (!recursive) say(&out, "%s: cannot modify /\n", cmd);
+                continue;
+            }
             int rc = 0;
-            if (!strcmp(cmd, "mkdir")) rc = mkdir(host, 0755);
+            if (!strcmp(cmd, "mkdir")) rc = recursive ? make_parents(shell, guest) : mkdir(host, 0755);
             else if (!strcmp(cmd, "touch")) { FILE *file = fopen(host, "ab"); if (file) fclose(file); else rc = -1; }
             else if (!strcmp(cmd, "rm")) rc = unlink(host);
             else rc = rmdir(host);
