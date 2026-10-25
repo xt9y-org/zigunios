@@ -13,6 +13,12 @@ A small iPad development-workstation experiment: native UIKit terminal, persiste
 
 **Not implemented:** `git clone`, Zig compiler, `c build run`, Make/CMake, arbitrary process execution, OpenGL/Metal game execution, POSIX-compatible pipelines and job control. These are deliberately tracked as future milestones rather than mocked as working commands.
 
+## Download an IPA from GitHub Actions
+
+Zigunios has an [iOS Build workflow](https://github.com/xt9y-org/zigunios/actions/workflows/ios-build.yml) based on [MobAI ios-builder](https://github.com/MobAI-App/ios-builder). It builds an **unsigned IPA** on GitHub-hosted macOS on every push to `main`, or when you click **Run workflow**. After a successful run, download the **ipa** artifact under **Artifacts** and extract the IPA.
+
+To install on your iPad without the $99 Apple Developer membership, **sign the unsigned IPA using a free Apple Account** through SideStore, AltStore, Sideloadly, or configured MobAI. It cannot be installed unsigned. Free-account signatures generally expire after seven days. See [full IPA build and sideloading steps](docs/IPA.md).
+
 ## Try it on your iPad for free
 
 Follow [docs/DEVICE.md](docs/DEVICE.md). No paid Apple Developer membership required: Xcode's **Personal Team** signs the app to your own iPad for 7 days, then you rebuild/reinstall.
