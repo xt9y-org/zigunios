@@ -2,11 +2,14 @@
 
 A small iPad development-workstation experiment: native UIKit terminal, persistent Unix-style workspace, and a future C/C++ compiler and in-app program runner. **Not an iOS replacement, Linux kernel, or working C compiler yet.**
 
-## Current development build (v0.3)
+## Current development build (v0.4)
 
 - UIKit iPad terminal with keyboard, import, and a persistent Unix-style workspace.
 - Shell commands: `pwd`, `cd`, `ls`, `mkdir`, `touch`, `cat`, `cp`, `mv`, `rm`, `rmdir`, `grep`, `head`, `wc`, `echo`, `clear`, `uname`, `whoami`, `date`, `help`.
 - Real Git over HTTPS with statically linked **libgit2**: `git clone`, `git status`, `git log`, `git branch`, and `git fetch`. This creates normal Git repositories with a real `.git` directory, not extracted ZIP archives.
+- Git supports pinned clone options (`--depth 1`, `--branch TAG`, `--recurse-submodules`) and `git -C DIR submodule update --init --recursive` for HorseEngine's setup.sh.
+- `setup check` inspects a local setup.sh script, and `setup deps` fetches its recognized Git dependencies **without running Bash, CMake or Clang**.
+- `project inspect` / `c inspect` analyzes setup.sh and build.c compatibility (source inspection, not compilation).
 - Git networking and filesystem commands run off the main UI thread.
 - `edit filename` opens a native UTF-8 source editor with Save/Cancel.
 - `wasm demo` runs a bundled example WebAssembly module; `wasm file.wasm` runs imported WASI Preview 1 modules through the **wasm3 interpreter** (no JIT).
@@ -29,11 +32,24 @@ metal demo
 ls
 ```
 
-The `c`, `zig`, `cmake` and `make` commands currently return **not implemented**. WASM3 executes modules but is not a compiler. iPadOS doesn't allow executing newly compiled unsigned ARM64 binaries; implementing compilation requires a compiler linked into the signed host app and an interpreted runtime (such as WebAssembly). See [the architecture](docs/ARCHITECTURE.md).
+The `c build`, `zig`, `cmake` and `make` commands currently return **not implemented**. The real `xt9y/build.c` needs executable build modules and subprocess support; the next substantial stage is an in-process compiler and build graph runtime. WASM3 executes modules but is not a compiler. See [HorseEngine.cpp integration audit](docs/HORSE.md). iPadOS doesn't allow executing newly compiled unsigned ARM64 binaries; implementing compilation requires a compiler linked into the signed host app and an interpreted runtime (such as WebAssembly). See [the architecture](docs/ARCHITECTURE.md).
 
 ### Build requirements
 
 The GitHub Actions workflow automatically downloads and builds **libgit2 v1.9.7** (Apple SecureTransport) and **wasm3 v0.9.0** for iOS ARM64. For a local Xcode build, run `bash scripts/build-libgit2-ios.sh` and `bash scripts/build-wasm3-ios.sh` first (CMake + Ninja). No prebuilt binary dependency is checked into this repository.
+
+## HorseEngine.cpp source fetch
+
+```sh
+cd /home/projects
+git clone https://github.com/xt9y/HorseEngine.cpp.git
+cd HorseEngine.cpp
+project inspect
+setup check
+setup deps
+```
+
+This downloads pinned source repositories, but **does not build R3D or start a game**. For the actual setup.sh commands, the `c` build-system ABI, the native Zig CC limitations and the eventual app architecture, read [docs/HORSE.md](docs/HORSE.md).
 
 ## Download an IPA from GitHub Actions
 
