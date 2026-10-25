@@ -9,7 +9,7 @@ mindmap
       Simple dark UI
       Hardware keyboard
       Files import and sharing
-      In-app graphics surface later
+      Embedded Metal view demo
     Workspace
       Persistent sandbox root
       /home/projects
@@ -20,10 +20,10 @@ mindmap
       Real filesystem operations
       Builtins today
       Parser and redirection
-      Pipes and PTY later
+      WASM interpreter and editor
       Process isolation later
     Toolchain
-      Git support
+      Native HTTPS Git with libgit2
       Zig as C/C++ compiler
       c build system
       Make and CMake
@@ -34,9 +34,9 @@ mindmap
       Linux ARM64 interpreter optional
       Native signed tools bundled
     Graphics later
-      Host Metal view
+      Working Metal triangle proof
       Input and audio bridge
-      No OpenGL project in v0.1
+      No OpenGL translation project
     Delivery
       Xcode project
       Free Personal Team
@@ -86,26 +86,30 @@ A practical system probably combines A + C, with B only if useful. Do not build 
 
 | Stage | Goal | Status |
 |---|---|---|
-| 0 | iPad app, terminal, persistent sandbox, shell builtins, Files integration | Implemented in source; iPad build not yet device-verified |
-| 1 | Real Git clone/fetch and project directory management | Not implemented |
-| 2 | Demonstrate bundled C compiler: source → interpreted runnable program | Not implemented |
-| 3 | Integrate `c` build-system configuration and basic compile/run workflow | Not implemented |
-| 4 | Basic process ABI, pipes, environment, exit codes, correct shell scripting | Not implemented |
-| 5 | CMake/Make projects and selected libraries | Not implemented |
-| 6 | Embedded Metal surface for compiled app rendering; input/audio forwarding | Not implemented |
-| 7 | More Linux compatibility as justified by actual project needs | Not implemented |
+| 0 | iPad app, persistent shell workspace, Files integration | Verified on a physical iPad in v0.1 |
+| 1 | Real Git repositories and basic Git commands | Implemented with static libgit2, pending device behavior verification |
+| 1b | Native UTF-8 source editor and file tools | Implemented |
+| 2a | Execute imported WASM / WASI programs without JIT | Implemented with wasm3; use `wasm demo` or `wasm FILE.wasm` |
+| 2b | Native-hosted C/C++ compiler emitting WASM | Not implemented; requires substantial Clang/Zig toolchain integration |
+| 3 | `c build run` and Unix process semantics | Not implemented |
+| 4 | General Make/CMake project compatibility | Not implemented |
+| 5a | Native Metal output inside the app | Implemented proof-of-concept: `metal demo` |
+| 5b | Compile and render arbitrary games in-process | Not implemented |
+| 6 | Wider Linux ABI/package support | Deferred |
 
-### First test after installing v0.1
+### Test commands on the device
 
 ```sh
-pwd
-ls
-mkdir demo
-cd demo
-echo hello > hello.txt
-cat hello.txt
-cd ..
-ls
+cd /home/projects
+git clone https://github.com/libgit2/clar.git
+cd clar
+git status
+git log
+edit README.md
+git diff
+wasm demo
+metal demo
 ```
 
-After stage 1, the next test is a real `git clone`. After stage 2, compile a tiny C program and execute it under the approved runtime. **A full `c build run` on an arbitrary raylib project is not currently possible.**
+**Zig is intended to provide the C/C++ compiler, not to become a new operating-system kernel.** The important remaining work is porting a compiler such as Zig/Clang into signed iPadOS host code and compiling to a format the app can interpret. A `zig` binary built for Linux or macOS cannot simply be placed in the iPad app and executed. Likewise, the WASM interpreter cannot run native AArch64 ELF or Mach-O binaries. These limits are enforced by iPadOS and not solved by changing the display backend.
+
