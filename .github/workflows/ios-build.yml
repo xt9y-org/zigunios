@@ -1289,6 +1289,7 @@ jobs:
             mkdir -p "build/Payload/$APP_NAME/Frameworks"
             cp -R vendor/compiler-ios/frameworks/*.framework "build/Payload/$APP_NAME/Frameworks/"
             cp -R vendor/compiler-ios/wasi-sysroot "build/Payload/$APP_NAME/wasi-sysroot"
+            cp scripts/commandDictionary.plist "build/Payload/$APP_NAME/commandDictionary.plist"
             du -sh "build/Payload/$APP_NAME/Frameworks" "build/Payload/$APP_NAME/wasi-sysroot"
             cd build
             zip -rq "$BUILD_ID.ipa" Payload
