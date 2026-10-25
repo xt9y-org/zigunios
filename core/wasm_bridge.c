@@ -27,24 +27,40 @@ static char *message(const char *text)
 char *zu_wasm_execute(void *context, ZUShell *shell, int argc, const char *const argv[])
 {
     (void)context;
-    if (argc != 2) return message("usage: wasm FILE.wasm\n");
-    char guest[ZU_PATH_MAX], host[ZU_PATH_MAX];
-    if (!zu_shell_resolve_path(shell, argv[1], guest, host))
-        return message("wasm: invalid or unsafe path\n");
-
-    struct stat st;
-    if (stat(host, &st) != 0 || !S_ISREG(st.st_mode) ||
-        st.st_size <= 0 || st.st_size > ZU_WASM_MAX_FILE)
-        return message("wasm: file missing, empty, or exceeds 64 MiB\n");
-
-    FILE *file = fopen(host, "rb");
-    if (!file) return message("wasm: could not open file\n");
-    size_t size = (size_t)st.st_size;
-    uint8_t *bytes = malloc(size);
-    if (!bytes) { fclose(file); return message("wasm: out of memory\n"); }
-    int valid = fread(bytes, 1, size, file) == size;
-    fclose(file);
-    if (!valid) { free(bytes); return message("wasm: file read failed\n"); }
+    if (argc != 2) return message("usage: wasm FILE.wasm | wasm demo\n");
+    uint8_t *bytes = NULL;
+    size_t size = 0;
+    if (!strcmp(argv[1], "demo")) {
+        // Tiny standards-compliant wasm module exporting an empty _start.
+        static const uint8_t sample[] = {
+            0x00,0x61,0x73,0x6d,0x01,0x00,0x00,0x00,
+            0x01,0x04,0x01,0x60,0x00,0x00,
+            0x03,0x02,0x01,0x00,
+            0x07,0x0a,0x01,0x06,0x5f,0x73,0x74,0x61,0x72,0x74,0x00,0x00,
+            0x0a,0x04,0x01,0x02,0x00,0x0b
+        };
+        size = sizeof(sample);
+        bytes = malloc(size);
+        if (bytes) memcpy(bytes, sample, size);
+    } else {
+        char guest[ZU_PATH_MAX], host[ZU_PATH_MAX];
+        if (!zu_shell_resolve_path(shell, argv[1], guest, host))
+            return message("wasm: invalid or unsafe path\n");
+        struct stat st;
+        if (stat(host, &st) != 0 || !S_ISREG(st.st_mode) ||
+            st.st_size <= 0 || st.st_size > ZU_WASM_MAX_FILE)
+            return message("wasm: file missing, empty, or exceeds 64 MiB\n");
+        FILE *file = fopen(host, "rb");
+        if (!file) return message("wasm: could not open file\n");
+        size = (size_t)st.st_size;
+        bytes = malloc(size);
+        if (bytes && fread(bytes, 1, size, file) != size) {
+            free(bytes);
+            bytes = NULL;
+        }
+        fclose(file);
+    }
+    if (!bytes) return message("wasm: unable to load WebAssembly module\n");
 
     // Run one guest at a time. This also prevents the process-global stdout redirect
     // from interfering with another interpreted module.
