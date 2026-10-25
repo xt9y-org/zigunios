@@ -873,6 +873,9 @@ jobs:
       - name: Prepare wasm3 interpreter for iPad
         run: bash scripts/build-wasm3-ios.sh
 
+      - name: Prepare embedded Clang/LLD runtime
+        run: bash scripts/prepare-compiler-ios.sh
+
       - name: Build IPA
         env:
           BUILD_ID: ${{ steps.params.outputs.build_id }}
@@ -1280,6 +1283,13 @@ jobs:
             cd "$GITHUB_WORKSPACE"
             mkdir -p build/Payload
             cp -R "$APP_PATH" build/Payload/
+            # Bundle precompiled, signable iOS frameworks and WASI sysroot.
+            # The IPA stays unsigned; sideload signing must include nested frameworks.
+            APP_NAME=$(basename "$APP_PATH")
+            mkdir -p "build/Payload/$APP_NAME/Frameworks"
+            cp -R vendor/compiler-ios/frameworks/*.framework "build/Payload/$APP_NAME/Frameworks/"
+            cp -R vendor/compiler-ios/wasi-sysroot "build/Payload/$APP_NAME/wasi-sysroot"
+            du -sh "build/Payload/$APP_NAME/Frameworks" "build/Payload/$APP_NAME/wasi-sysroot"
             cd build
             zip -rq "$BUILD_ID.ipa" Payload
             rm -rf Payload
