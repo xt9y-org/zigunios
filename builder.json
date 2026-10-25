@@ -1,0 +1,15 @@
+{
+  "project": "Zigunios",
+  "platform": "ios",
+  "github": {
+    "owner": "xt9y-org",
+    "repo": "zigunios"
+  },
+  "ios": {
+    "path": ".",
+    "scheme": "Zigunios",
+    "bundleId": "org.xt9y.zigunios",
+    "configuration": "Release",
+    "signing": false
+  }
+}
