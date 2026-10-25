@@ -861,6 +861,10 @@ jobs:
           echo "  identity: $CODE_SIGN_IDENTITY"
           echo "The build writes these into the app target's build settings; its PRODUCT_BUNDLE_IDENTIFIER must match the app id above. Extension targets get the profiles listed above by bundle id."
 
+      # Native Git support is statically linked into the iPad app.
+      - name: Prepare libgit2 for iPad
+        run: bash scripts/build-libgit2-ios.sh
+
       - name: Build IPA
         env:
           BUILD_ID: ${{ steps.params.outputs.build_id }}
