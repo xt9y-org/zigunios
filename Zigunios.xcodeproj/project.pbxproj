@@ -15,6 +15,7 @@
         A00000000000000000000007 = {isa = PBXBuildFile; fileRef = A00000000000000000000017; };
         A00000000000000000000008 = {isa = PBXBuildFile; fileRef = A00000000000000000000018; };
         A00000000000000000000009 = {isa = PBXBuildFile; fileRef = A00000000000000000000019; };
+        A0000000000000000000000A = {isa = PBXBuildFile; fileRef = A0000000000000000000001C; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +31,8 @@
         A00000000000000000000019 = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UniformTypeIdentifiers.framework; path = System/Library/Frameworks/UniformTypeIdentifiers.framework; sourceTree = SDKROOT; };
         A0000000000000000000001A = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
         A0000000000000000000001B = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = shell.h; sourceTree = "<group>"; };
+        A0000000000000000000001C = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = git_bridge.c; sourceTree = "<group>"; };
+        A0000000000000000000001D = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = git_bridge.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -59,7 +62,7 @@
             name = core;
             path = core;
             sourceTree = "<group>";
-            children = (A0000000000000000000001B, A00000000000000000000015, );
+            children = (A0000000000000000000001B, A00000000000000000000015, A0000000000000000000001C, A0000000000000000000001D, );
         };
         A00000000000000000000024 = {
             isa = PBXGroup;
@@ -118,7 +121,7 @@
         A00000000000000000000026 = {
             isa = PBXSourcesBuildPhase;
             buildActionMask = 2147483647;
-            files = (A00000000000000000000001, A00000000000000000000002, A00000000000000000000003, A00000000000000000000004, A00000000000000000000005, );
+            files = (A00000000000000000000001, A00000000000000000000002, A00000000000000000000003, A00000000000000000000004, A00000000000000000000005, A0000000000000000000000A, );
             runOnlyForDeploymentPostprocessing = 0;
         };
 /* End PBXSourcesBuildPhase section */
@@ -156,11 +159,12 @@
                 PRODUCT_BUNDLE_IDENTIFIER = org.xt9y.zigunios;
                 INFOPLIST_FILE = app/Info.plist;
                 GENERATE_INFOPLIST_FILE = NO;
-                HEADER_SEARCH_PATHS = ("$(SRCROOT)/core", "$(inherited)", );
+                HEADER_SEARCH_PATHS = ("$(SRCROOT)/core", "$(SRCROOT)/vendor/libgit2-ios/include", "$(inherited)", );
+                OTHER_LDFLAGS = ("$(inherited)", "$(SRCROOT)/vendor/libgit2-ios/lib/libgit2.a", "-framework", "Security", "-framework", "CoreFoundation", "-lz", );
                 TARGETED_DEVICE_FAMILY = 2;
                 IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-                MARKETING_VERSION = 0.1.0;
-                CURRENT_PROJECT_VERSION = 1;
+                MARKETING_VERSION = 0.2.0;
+                CURRENT_PROJECT_VERSION = 2;
                 ENABLE_BITCODE = NO;
             };
             name = Debug;
@@ -173,11 +177,12 @@
                 PRODUCT_BUNDLE_IDENTIFIER = org.xt9y.zigunios;
                 INFOPLIST_FILE = app/Info.plist;
                 GENERATE_INFOPLIST_FILE = NO;
-                HEADER_SEARCH_PATHS = ("$(SRCROOT)/core", "$(inherited)", );
+                HEADER_SEARCH_PATHS = ("$(SRCROOT)/core", "$(SRCROOT)/vendor/libgit2-ios/include", "$(inherited)", );
+                OTHER_LDFLAGS = ("$(inherited)", "$(SRCROOT)/vendor/libgit2-ios/lib/libgit2.a", "-framework", "Security", "-framework", "CoreFoundation", "-lz", );
                 TARGETED_DEVICE_FAMILY = 2;
                 IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-                MARKETING_VERSION = 0.1.0;
-                CURRENT_PROJECT_VERSION = 1;
+                MARKETING_VERSION = 0.2.0;
+                CURRENT_PROJECT_VERSION = 2;
                 ENABLE_BITCODE = NO;
             };
             name = Release;
