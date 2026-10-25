@@ -67,6 +67,11 @@ on:
         type: string
         default: ''
 
+# A newer source change replaces an earlier unsigned iPad build.
+concurrency:
+  group: zigunios-ipa-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: macos-26
