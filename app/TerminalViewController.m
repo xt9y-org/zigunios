@@ -5,6 +5,7 @@
 #import "shell.h"
 #import "git_bridge.h"
 #import "wasm_bridge.h"
+#import "project.h"
 #include <string.h>
 
 // Minimal native source editor, no embedded web view or external app.
@@ -168,6 +169,8 @@ static char *zu_run_external(void *context, ZUShell *shell,
         return zu_git_execute(context, shell, argc, argv);
     if (argc > 0 && !strcmp(argv[0], "wasm"))
         return zu_wasm_execute(context, shell, argc, argv);
+    if (argc > 0 && !strcmp(argv[0], "project"))
+        return zu_project_execute(context, shell, argc, argv);
     return strdup("unknown external command\n");
 }
 
@@ -267,7 +270,7 @@ static char *zu_run_external(void *context, ZUShell *shell,
     _ready = zu_shell_init(&_shell, root.fileSystemRepresentation);
     if (_ready) zu_shell_set_external(&_shell, zu_run_external, NULL);
     self.transcript.text = _ready
-        ? @"zigunios 0.3  |  Git / wasm / Metal\nType 'help' for available commands.\nProjects persist in Files > On My iPad > Zigunios > root.\n\n"
+        ? @"zigunios 0.4  |  Git / wasm / Metal\nType 'help' for available commands.\nProjects persist in Files > On My iPad > Zigunios > root.\n\n"
         : @"Failed to create the local workspace.\n";
     [self updatePrompt];
 }
