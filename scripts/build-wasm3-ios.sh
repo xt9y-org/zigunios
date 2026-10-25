@@ -6,6 +6,7 @@ cd "$(dirname "$0")/.."
 ROOT="$PWD"
 SRC="$ROOT/.build-deps/wasm3"
 BUILD="$ROOT/.build-deps/wasm3-ios-build"
+WRAPPER="$ROOT/.build-deps/wasm3-wrapper"
 PREFIX="$ROOT/vendor/wasm3-ios"
 
 if [ -s "$PREFIX/lib/libm3.a" ] && [ -s "$PREFIX/include/wasm3.h" ]; then
@@ -18,7 +19,17 @@ if [ ! -d "$SRC/.git" ]; then
     git clone --branch v0.9.0 --depth 1 https://github.com/wasm3/wasm3.git "$SRC"
 fi
 
-cmake -S "$SRC" -B "$BUILD" -G Ninja \
+# Build the static library only. Upstream top-level CMake installs a
+# macOS-style executable bundle, which cannot be configured for iOS.
+mkdir -p "$WRAPPER"
+cat > "$WRAPPER/CMakeLists.txt" <<EOF
+cmake_minimum_required(VERSION 3.20)
+project(ZiguniosWasm3 LANGUAGES C)
+set(BUILD_WASI simple)
+add_subdirectory("$SRC/source" source)
+EOF
+
+cmake -S "$WRAPPER" -B "$BUILD" -G Ninja \
     -DCMAKE_SYSTEM_NAME=iOS \
     -DCMAKE_OSX_SYSROOT=iphoneos \
     -DCMAKE_OSX_ARCHITECTURES=arm64 \
