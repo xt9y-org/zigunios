@@ -62,7 +62,7 @@ char *zu_git_execute(void *context, ZUShell *shell, int argc, const char *const 
     Message out = {.data = calloc(ZU_GIT_OUTPUT, 1), .length = 0};
     if (!out.data) return NULL;
     if (argc < 2) {
-        append(&out, "git commands: clone <https-url> [folder], status, log, branch, fetch\n");
+        append(&out, "git commands: clone <https-url> [folder], status, log, branch, fetch, diff, config, add, commit\n");
         return out.data;
     }
 
@@ -188,8 +188,98 @@ char *zu_git_execute(void *context, ZUShell *shell, int argc, const char *const 
         if (code) git_failure(&out, "fetch", code);
         else append(&out, "Fetched from origin (working tree unchanged)\n");
         git_remote_free(remote);
+    } else if (!strcmp(cmd, "diff")) {
+        if (argc != 2) { append(&out, "usage: git diff\n"); goto done; }
+        if (repo_here(shell, &repo, &out)) goto done;
+        git_diff *diff = NULL;
+        git_buf patch = GIT_BUF_INIT;
+        code = git_diff_index_to_workdir(&diff, repo, NULL, NULL);
+        if (!code) code = git_diff_to_buf(&patch, diff, GIT_DIFF_FORMAT_PATCH);
+        if (code) git_failure(&out, "diff", code);
+        else if (patch.ptr) append(&out, "%.*s%s",
+            (int)(patch.size < ZU_GIT_OUTPUT - 100 ? patch.size : ZU_GIT_OUTPUT - 100),
+            patch.ptr, patch.size >= ZU_GIT_OUTPUT - 100 ? "\n(diff truncated)\n" : "");
+        git_buf_dispose(&patch);
+        git_diff_free(diff);
+    } else if (!strcmp(cmd, "config")) {
+        if (argc != 4 || (strcmp(argv[2], "user.name") && strcmp(argv[2], "user.email"))) {
+            append(&out, "usage: git config user.name NAME | git config user.email EMAIL\n");
+            goto done;
+        }
+        if (repo_here(shell, &repo, &out)) goto done;
+        git_config *config = NULL;
+        code = git_repository_config(&config, repo);
+        if (!code) code = git_config_set_string(config, argv[2], argv[3]);
+        if (code) git_failure(&out, "config", code);
+        else append(&out, "Saved %s in repository config\n", argv[2]);
+        git_config_free(config);
+    } else if (!strcmp(cmd, "add")) {
+        if (argc != 3) { append(&out, "usage: git add FILE (or . for all files)\n"); goto done; }
+        if (repo_here(shell, &repo, &out)) goto done;
+        git_index *index = NULL;
+        code = git_repository_index(&index, repo);
+        if (!code) {
+            if (!strcmp(argv[2], ".")) {
+                // A local iPad workspace: stage all files from the current repository.
+                code = git_index_add_all(index, NULL, GIT_INDEX_ADD_DEFAULT, NULL, NULL);
+                if (!code) code = git_index_update_all(index, NULL, NULL, NULL);
+            } else {
+                char guest[ZU_PATH_MAX], path[ZU_PATH_MAX];
+                if (!zu_shell_resolve_path(shell, argv[2], guest, path)) {
+                    append(&out, "git add: invalid or unsafe path\n"); goto done_add;
+                }
+                const char *workdir = git_repository_workdir(repo);
+                size_t length = workdir ? strlen(workdir) : 0;
+                if (!workdir || strncmp(path, workdir, length)) {
+                    append(&out, "git add: file is outside this repository\n"); goto done_add;
+                }
+                code = git_index_add_bypath(index, path + length);
+            }
+            if (!code) code = git_index_write(index);
+        }
+        if (code) git_failure(&out, "add", code);
+        else append(&out, "Changes staged\n");
+done_add:
+        git_index_free(index);
+    } else if (!strcmp(cmd, "commit")) {
+        if (argc != 4 || strcmp(argv[2], "-m")) {
+            append(&out, "usage: git commit -m \"message\"\n"); goto done;
+        }
+        if (repo_here(shell, &repo, &out)) goto done;
+        git_index *index = NULL;
+        git_tree *tree = NULL;
+        git_commit *parent = NULL;
+        git_signature *signature = NULL;
+        git_oid tree_oid, commit_oid, parent_oid;
+        code = git_repository_index(&index, repo);
+        if (!code) code = git_index_write_tree(&tree_oid, index);
+        if (!code) code = git_tree_lookup(&tree, repo, &tree_oid);
+        if (!code) code = git_signature_default(&signature, repo);
+        if (code) append(&out, "git commit: configure identity first:\n"
+                              "  git config user.name \"Your Name\"\n"
+                              "  git config user.email \"you@example.com\"\n");
+        else {
+            int have_parent = git_reference_name_to_id(&parent_oid, repo, "HEAD") == 0;
+            if (have_parent) code = git_commit_lookup(&parent, repo, &parent_oid);
+            if (!code) {
+                const git_commit *parents[] = {parent};
+                code = git_commit_create(&commit_oid, repo, "HEAD", signature, signature,
+                    NULL, argv[3], tree, have_parent ? 1 : 0,
+                    have_parent ? parents : NULL);
+            }
+            if (code) git_failure(&out, "commit", code);
+            else {
+                char sha[GIT_OID_SHA1_HEXSIZE + 1];
+                git_oid_tostr(sha, sizeof(sha), &commit_oid);
+                append(&out, "Committed %.10s %s\n", sha, argv[3]);
+            }
+        }
+        git_signature_free(signature);
+        git_commit_free(parent);
+        git_tree_free(tree);
+        git_index_free(index);
     } else {
-        append(&out, "git %s: not implemented. Available: clone, status, log, branch, fetch\n", cmd);
+        append(&out, "git %s: not implemented. Use clone, status, log, branch, fetch, diff, config, add, commit\n", cmd);
     }
 
 done:
