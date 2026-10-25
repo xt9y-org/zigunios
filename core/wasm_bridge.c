@@ -6,6 +6,7 @@
 #include <m3_exception.h>
 
 #include <errno.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,7 +28,7 @@ static char *message(const char *text)
 char *zu_wasm_execute(void *context, ZUShell *shell, int argc, const char *const argv[])
 {
     (void)context;
-    if (argc != 2) return message("usage: wasm FILE.wasm | wasm demo\n");
+    if (argc < 2) return message("usage: wasm FILE.wasm [arguments] | wasm demo\n");
     uint8_t *bytes = NULL;
     size_t size = 0;
     if (!strcmp(argv[1], "demo")) {
@@ -69,11 +70,20 @@ char *zu_wasm_execute(void *context, ZUShell *shell, int argc, const char *const
     if (!output) { pthread_mutex_unlock(&wasm_output_lock); free(bytes); return NULL; }
     size_t at = 0;
 
+    // Simple WASI preopens "." from the current host process directory.
+    // Match the selected guest directory, and restore it before returning.
+    char work_guest[ZU_PATH_MAX], work_host[ZU_PATH_MAX];
+    int oldcwd = open(".", O_RDONLY);
+    int have_cwd = oldcwd >= 0 &&
+        zu_shell_resolve_path(shell, ".", work_guest, work_host) &&
+        chdir(work_host) == 0;
+
     IM3Environment env = m3_NewEnvironment();
     IM3Runtime runtime = env ? m3_NewRuntime(env, 128 * 1024, NULL) : NULL;
     IM3Module module = NULL;
     IM3Function start = NULL;
     M3Result result = env && runtime ? NULL : "wasm3 allocation failed";
+    if (!have_cwd) result = "failed to enter workspace directory";
     int loaded = 0;
 
     if (!result) result = m3_ParseModule(env, &module, bytes, (uint32_t)size);
@@ -82,6 +92,14 @@ char *zu_wasm_execute(void *context, ZUShell *shell, int argc, const char *const
         if (!result) loaded = 1;
     }
     if (!result) result = m3_LinkWASI(module);
+    if (!result) {
+        m3_wasi_context_t *wasi = m3_GetWasiContext();
+        if (wasi) {
+            wasi->exit_code = 0;
+            wasi->argc = (uint32_t)(argc - 1);
+            wasi->argv = (const char **)(argv + 1);
+        }
+    }
     if (!result) result = m3_FindFunction(&start, runtime, "_start");
 
     // WASI writes stdout through libc on the host. Capture to a temporary file
@@ -118,6 +136,10 @@ char *zu_wasm_execute(void *context, ZUShell *shell, int argc, const char *const
         snprintf(output + at, ZU_WASM_MAX_OUTPUT - at, "\n[wasm exit %d]\n", exit_code);
     }
 
+    if (oldcwd >= 0) {
+        (void)fchdir(oldcwd);
+        close(oldcwd);
+    }
     if (module && !loaded) m3_FreeModule(module);
     if (runtime) m3_FreeRuntime(runtime);
     if (env) m3_FreeEnvironment(env);
