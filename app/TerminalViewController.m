@@ -279,7 +279,7 @@ static char *zu_run_external(void *context, ZUShell *shell,
     _ready = zu_shell_init(&_shell, root.fileSystemRepresentation);
     if (_ready) zu_shell_set_external(&_shell, zu_run_external, NULL);
     self.transcript.text = _ready
-        ? @"zigunios 0.4  |  Git / wasm / Metal\nType 'help' for available commands.\nProjects persist in Files > On My iPad > Zigunios > root.\n\n"
+        ? @"zigunios 0.5  |  Git / Clang / wasm / Metal\nType 'help' for available commands.\nProjects persist in Files > On My iPad > Zigunios > root.\n\n"
         : @"Failed to create the local workspace.\n";
     [self updatePrompt];
 }
