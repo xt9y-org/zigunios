@@ -57,7 +57,7 @@ static int inspect_script(ZUShell *shell, Report *report)
         note(report, "  CMake operations: %u   [BLOCKED: CMake and native tool execution unavailable]\n",
              cmake);
     if (clang)
-        note(report, "  Clang prerequisite: yes   [BLOCKED: Clang/Zig cc not embedded]\n");
+        note(report, "  Clang prerequisite: yes   [native Clang runs WASI C only, not desktop C++]\n");
     note(report, "  Script execution: BLOCKED (no POSIX Bash/process runtime)\n");
     return 1;
 }
@@ -100,7 +100,7 @@ static int inspect_cbuild(ZUShell *shell, Report *report)
     note(report, "  Declared sources: %u, include paths: %u, flags: %u, links: %u, frameworks: %u\n",
          sources, includes, flags, libs, frameworks);
     note(report, "  Running build(C_Build*): BLOCKED (needs a C compiler + compatible build-module ABI)\n");
-    note(report, "  Building and launching: BLOCKED (needs subprocess or interpreted target support)\n");
+    note(report, "  Building and launching: single-C-source WASI builds supported experimentally; native and C++ blocked\n");
     if (desktop_gl || macos_only) {
         note(report, "  Platform: %s%s — macOS desktop APIs are not iPadOS backends\n",
              desktop_gl ? "desktop OpenGL " : "",
@@ -127,7 +127,7 @@ char *zu_project_execute(void *context, ZUShell *shell,
     if (!setup && !build) {
         note(&report, "No setup.sh or build.c found in this directory.\n");
     }
-    note(&report, "Compiler: Zig cc is not available in this app build.\n");
+    note(&report, "Compiler: on-device Clang 14 -> wasm32-wasi is experimental. Zig cc is not bundled.\n");
     note(&report, "Execution: WASI programs work via 'wasm FILE.wasm'; native app binaries do not.\n");
     note(&report, "Display: 'metal demo' works; running desktop OpenGL games is unsupported.\n");
     return report.data;
