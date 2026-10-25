@@ -1290,6 +1290,11 @@ jobs:
             cp -R vendor/compiler-ios/frameworks/*.framework "build/Payload/$APP_NAME/Frameworks/"
             cp -R vendor/compiler-ios/wasi-sysroot "build/Payload/$APP_NAME/wasi-sysroot"
             cp scripts/commandDictionary.plist "build/Payload/$APP_NAME/commandDictionary.plist"
+            # Pin the original xt9y/build.c v1.x API for interpreted build.c evaluation.
+            curl --fail --location --retry 3 --silent --show-error \
+              "https://raw.githubusercontent.com/xt9y/build.c/1d4c6762ba8fb06b726ebd16101264f2f5206aa0/include/cbuild.h" \
+              -o "build/Payload/$APP_NAME/cbuild.h"
+            grep -q "C_BUILD_API_VERSION_MAJOR" "build/Payload/$APP_NAME/cbuild.h"
             du -sh "build/Payload/$APP_NAME/Frameworks" "build/Payload/$APP_NAME/wasi-sysroot"
             cd build
             zip -rq "$BUILD_ID.ipa" Payload
