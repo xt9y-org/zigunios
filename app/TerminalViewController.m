@@ -1,6 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <MetalKit/MetalKit.h>
+#include <math.h>
 #import "shell.h"
 #import "git_bridge.h"
 
@@ -147,7 +148,7 @@
     if (!pass || !drawable) return;
     id<MTLCommandBuffer> commands = [self.queue commandBuffer];
     id<MTLRenderCommandEncoder> render = [commands renderCommandEncoderWithDescriptor:pass];
-    float phase = (float)[NSDate date].timeIntervalSinceReferenceDate;
+    float phase = (float)fmod([NSDate date].timeIntervalSinceReferenceDate, 6.283185307179586);
     [render setRenderPipelineState:self.pipeline];
     [render setVertexBytes:&phase length:sizeof(phase) atIndex:0];
     [render drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
