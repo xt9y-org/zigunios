@@ -50,6 +50,32 @@ static int split(char *line, const char **args, int cap)
     return count;
 }
 
+static int ensure_parent_dirs(const ZUShell *shell, const char *guest)
+{
+    // Guest path has already been normalized and checked for symlink traversal.
+    // Create parents from inside Documents/root only, never outside it.
+    size_t root_len = strlen(shell->root);
+    char path[ZU_PATH_MAX];
+    if (snprintf(path, sizeof(path), "%s%s", shell->root, guest) >= (int)sizeof(path))
+        return -1;
+    for (char *p = path + root_len + 1; *p; p++) {
+        if (*p != '/') continue;
+        *p = 0;
+        struct stat st;
+        if (lstat(path, &st) == 0) {
+            if (!S_ISDIR(st.st_mode) || S_ISLNK(st.st_mode)) {
+                *p = '/';
+                return -1;
+            }
+        } else if (mkdir(path, 0755) && errno != EEXIST) {
+            *p = '/';
+            return -1;
+        }
+        *p = '/';
+    }
+    return 0;
+}
+
 static const char *clone_destination(int count, const char *const args[])
 {
     const char *url = NULL, *destination = NULL;
@@ -177,6 +203,11 @@ char *zu_setup_execute(void *context, ZUShell *shell, int argc, const char *cons
                 report(&out, "setup: destination exists without .git: ");
                 report(&out, clone_guest);
                 report(&out, "\n");
+                errors++;
+                continue;
+            }
+            if (ensure_parent_dirs(shell, clone_guest)) {
+                report(&out, "setup: unable to create dependency parent folder\n");
                 errors++;
                 continue;
             }
