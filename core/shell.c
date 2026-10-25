@@ -208,13 +208,13 @@ char *zu_shell_execute(ZUShell *shell, const char *line, int *clear_screen)
     char guest[ZU_PATH_MAX], host[ZU_PATH_MAX];
 
     if (!strcmp(cmd, "help")) {
-        say(&out, "Zigunios v0.4 — iPad workspace\n"
+        say(&out, "Zigunios v0.5 — iPad workspace\n"
                   "  pwd cd ls mkdir touch cat echo rm rmdir cp mv clear\n"
                   "  grep head wc uname whoami date help\n"
                   "  git clone --branch/--depth, submodule update, status\n"
-                  "  project inspect; setup check/deps; wasm FILE.wasm\n"
+                  "  project inspect; setup check/deps; cc hello.c\n"\n                  "  wasm FILE.wasm; metal demo\n"
                   "  echo text > file   (or >> to append)\n"
-                  "Zig CC / CMake / arbitrary POSIX processes are not yet available.\n");
+                  "Uses native Clang for C -> WASI. c build, CMake and POSIX processes still unavailable.\n");
     } else if (!strcmp(cmd, "pwd")) {
         say(&out, "%s\n", shell->cwd);
     } else if (!strcmp(cmd, "cd")) {
@@ -396,7 +396,7 @@ char *zu_shell_execute(ZUShell *shell, const char *line, int *clear_screen)
         free(args);
         free(out.data);
         return answer ? answer : strdup("c inspect: unable to inspect project\n");
-    } else if ((!strcmp(cmd, "git") || !strcmp(cmd, "wasm") || !strcmp(cmd, "project") || !strcmp(cmd, "setup")) && shell->external) {
+    } else if ((!strcmp(cmd, "git") || !strcmp(cmd, "wasm") || !strcmp(cmd, "project") || !strcmp(cmd, "setup") || !strcmp(cmd, "cc") || !strcmp(cmd, "clang")) && shell->external) {
         const char *argv[ZU_WORDS];
         for (int i = 0; i < argc; i++) argv[i] = args[i];
         char *answer = shell->external(shell->external_context, shell, argc, argv);
