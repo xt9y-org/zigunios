@@ -212,7 +212,8 @@ char *zu_shell_execute(ZUShell *shell, const char *line, int *clear_screen)
                   "  pwd cd ls mkdir touch cat echo rm rmdir cp mv clear\n"
                   "  grep head wc uname whoami date help\n"
                   "  git clone --branch/--depth, submodule update, status\n"
-                  "  project inspect; setup deps; cc hello.c\n"\n                  "  c init | c build [run] (simple C targets)\n"
+                  "  project inspect; setup deps; cc hello.c\n"
+                  "  c init | c build [run] (simple C targets)\n"
                   "  wasm FILE.wasm; metal demo\n"
                   "  echo text > file   (or >> to append)\n"
                   "Uses native Clang for C -> WASI. multi-file c build, CMake and POSIX processes unavailable.\n");
