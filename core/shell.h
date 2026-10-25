@@ -3,16 +3,27 @@
 
 #define ZU_PATH_MAX 4096
 
-typedef struct {
+typedef struct ZUShell ZUShell;
+typedef char *(*ZUExternalCommand)(void *context, ZUShell *shell, int argc, const char *const argv[]);
+
+struct ZUShell {
     char root[ZU_PATH_MAX];
     char cwd[ZU_PATH_MAX];
-} ZUShell;
+    ZUExternalCommand external;
+    void *external_context;
+};
 
-/* The root is a trusted host directory belonging to the app. */
+/* root is the trusted app Documents/root path. */
 int zu_shell_init(ZUShell *shell, const char *root);
-
-/* Returns an owned string: caller must free it. clear_screen is set for `clear`. */
-char *zu_shell_execute(ZUShell *shell, const char *line, int *clear_screen);
 const char *zu_shell_cwd(const ZUShell *shell);
+
+/* Resolve guest paths inside the app sandbox; rejects symlink traversals. */
+int zu_shell_resolve_path(const ZUShell *shell, const char *input,
+                          char *guest, char *host);
+
+void zu_shell_set_external(ZUShell *shell, ZUExternalCommand callback, void *context);
+
+/* Returns heap-allocated UTF-8; caller frees. */
+char *zu_shell_execute(ZUShell *shell, const char *line, int *clear_screen);
 
 #endif
