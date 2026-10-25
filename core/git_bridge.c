@@ -117,7 +117,11 @@ static int switch_ref(git_repository *repo, const char *refname, Message *out)
         if (!oid) { code = -1; goto cleanup; }
         code = git_object_lookup(&commit, repo, oid, GIT_OBJECT_COMMIT);
         if (code) goto cleanup;
-        code = git_branch_create(&branch, repo, refname, (git_commit *)commit, 0);
+        // A shallow clone may already have created this local branch.
+        code = git_branch_lookup(&branch, repo, refname, GIT_BRANCH_LOCAL);
+        if (code == GIT_ENOTFOUND) {
+            code = git_branch_create(&branch, repo, refname, (git_commit *)commit, 0);
+        }
         if (code) goto cleanup;
         code = git_repository_set_head(repo, git_reference_name(branch));
     } else {
