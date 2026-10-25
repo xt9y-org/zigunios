@@ -28,7 +28,7 @@ static void append(Message *m, const char *format, ...)
     }
 }
 
-static void git_error(Message *m, const char *action, int code)
+static void git_failure(Message *m, const char *action, int code)
 {
     const git_error *error = git_error_last();
     append(m, "git %s: %s (code %d)\n", action,
@@ -109,7 +109,7 @@ char *zu_git_execute(void *context, ZUShell *shell, int argc, const char *const 
         append(&out, "Cloning into '%s'...\n", guest);
         code = git_clone(&repo, url, path, &options);
         if (code != 0) {
-            git_error(&out, "clone", code);
+            git_failure(&out, "clone", code);
             append(&out, "A failed clone may have left a partial folder. Remove it before retrying.\n");
         } else append(&out, "Clone complete. cd %s\n", name);
     } else if (!strcmp(cmd, "status")) {
@@ -120,7 +120,7 @@ char *zu_git_execute(void *context, ZUShell *shell, int argc, const char *const 
         options.flags = GIT_STATUS_OPT_INCLUDE_UNTRACKED | GIT_STATUS_OPT_RECURSE_UNTRACKED_DIRS;
         git_status_list *list = NULL;
         code = git_status_list_new(&list, repo, &options);
-        if (code) git_error(&out, "status", code);
+        if (code) git_failure(&out, "status", code);
         else {
             size_t count = git_status_list_entrycount(list);
             if (!count) append(&out, "Working tree clean\n");
@@ -147,7 +147,7 @@ char *zu_git_execute(void *context, ZUShell *shell, int argc, const char *const 
             git_revwalk_sorting(walk, GIT_SORT_TIME);
             code = git_revwalk_push_head(walk);
         }
-        if (code) git_error(&out, "log", code);
+        if (code) git_failure(&out, "log", code);
         else {
             git_oid oid;
             for (int count = 0; count < 20 && git_revwalk_next(&oid, walk) == 0; count++) {
@@ -166,7 +166,7 @@ char *zu_git_execute(void *context, ZUShell *shell, int argc, const char *const 
         if (repo_here(shell, &repo, &out)) goto done;
         git_branch_iterator *it = NULL;
         code = git_branch_iterator_new(&it, repo, GIT_BRANCH_LOCAL);
-        if (code) git_error(&out, "branch", code);
+        if (code) git_failure(&out, "branch", code);
         else {
             git_reference *ref = NULL;
             git_branch_t type;
@@ -185,7 +185,7 @@ char *zu_git_execute(void *context, ZUShell *shell, int argc, const char *const 
         git_remote *remote = NULL;
         code = git_remote_lookup(&remote, repo, "origin");
         if (!code) code = git_remote_fetch(remote, NULL, NULL, NULL);
-        if (code) git_error(&out, "fetch", code);
+        if (code) git_failure(&out, "fetch", code);
         else append(&out, "Fetched from origin (working tree unchanged)\n");
         git_remote_free(remote);
     } else {
