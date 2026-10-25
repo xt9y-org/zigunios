@@ -212,10 +212,10 @@ char *zu_shell_execute(ZUShell *shell, const char *line, int *clear_screen)
                   "  pwd cd ls mkdir touch cat echo rm rmdir cp mv clear\n"
                   "  grep head wc uname whoami date help\n"
                   "  git clone --branch/--depth, submodule update, status\n"
-                  "  project inspect; setup check/deps; cc hello.c\n"
+                  "  project inspect; setup deps; cc hello.c\n"\n                  "  c init | c build [run] (simple C targets)\n"
                   "  wasm FILE.wasm; metal demo\n"
                   "  echo text > file   (or >> to append)\n"
-                  "Uses native Clang for C -> WASI. c build, CMake and POSIX processes still unavailable.\n");
+                  "Uses native Clang for C -> WASI. multi-file c build, CMake and POSIX processes unavailable.\n");
     } else if (!strcmp(cmd, "pwd")) {
         say(&out, "%s\n", shell->cwd);
     } else if (!strcmp(cmd, "cd")) {
@@ -397,14 +397,14 @@ char *zu_shell_execute(ZUShell *shell, const char *line, int *clear_screen)
         free(args);
         free(out.data);
         return answer ? answer : strdup("c inspect: unable to inspect project\n");
-    } else if ((!strcmp(cmd, "git") || !strcmp(cmd, "wasm") || !strcmp(cmd, "project") || !strcmp(cmd, "setup") || !strcmp(cmd, "cc") || !strcmp(cmd, "clang")) && shell->external) {
+    } else if ((!strcmp(cmd, "git") || !strcmp(cmd, "wasm") || !strcmp(cmd, "project") || !strcmp(cmd, "setup") || !strcmp(cmd, "cc") || !strcmp(cmd, "clang") || !strcmp(cmd, "c")) && shell->external) {
         const char *argv[ZU_WORDS];
         for (int i = 0; i < argc; i++) argv[i] = args[i];
         char *answer = shell->external(shell->external_context, shell, argc, argv);
         free(args);
         free(out.data);
         return answer ? answer : strdup("tool: out of memory or internal error\n");
-    } else if (!strcmp(cmd, "zig") || !strcmp(cmd, "c") || !strcmp(cmd, "make") || !strcmp(cmd, "cmake")) {
+    } else if (!strcmp(cmd, "zig") || !strcmp(cmd, "make") || !strcmp(cmd, "cmake")) {
         say(&out, "%s: local compiler/process runtime is not implemented\n", cmd);
     } else {
         say(&out, "%s: command not found\n", cmd);
