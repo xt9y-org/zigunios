@@ -43,7 +43,7 @@ if [ ! -f "$SYSROOT/include/stdio.h" ]; then
         "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-20/wasi-sysroot-20.0.tar.gz" \
         -o "$DEST/archives/wasi-sysroot.tar.gz"
     mkdir -p "$SYSROOT"
-    tar -xzf "$DEST/archives/wasi-sysroot.tar.gz" -C "$SYSROOT"
+    tar -xzf "$DEST/archives/wasi-sysroot.tar.gz" -C "$SYSROOT" --strip-components=1
     rm -f "$DEST/archives/wasi-sysroot.tar.gz"
     if [ ! -f "$SYSROOT/include/stdio.h" ]; then
         echo "WASI sysroot did not extract include/stdio.h" >&2
