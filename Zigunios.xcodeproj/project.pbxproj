@@ -18,6 +18,7 @@
         A0000000000000000000000A = {isa = PBXBuildFile; fileRef = A0000000000000000000001C; };
         A0000000000000000000000B = {isa = PBXBuildFile; fileRef = A0000000000000000000001E; };
         A0000000000000000000000C = {isa = PBXBuildFile; fileRef = A00000000000000000000041; };
+        A0000000000000000000000D = {isa = PBXBuildFile; fileRef = A00000000000000000000043; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -39,6 +40,8 @@
         A0000000000000000000001F = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = wasm_bridge.h; sourceTree = "<group>"; };
         A00000000000000000000041 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = project.c; sourceTree = "<group>"; };
         A00000000000000000000042 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = project.h; sourceTree = "<group>"; };
+        A00000000000000000000043 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = setup_bridge.c; sourceTree = "<group>"; };
+        A00000000000000000000044 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = setup_bridge.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -68,7 +71,7 @@
             name = core;
             path = core;
             sourceTree = "<group>";
-            children = (A0000000000000000000001B, A00000000000000000000015, A0000000000000000000001C, A0000000000000000000001D, A0000000000000000000001E, A0000000000000000000001F, A00000000000000000000041, A00000000000000000000042, );
+            children = (A0000000000000000000001B, A00000000000000000000015, A0000000000000000000001C, A0000000000000000000001D, A0000000000000000000001E, A0000000000000000000001F, A00000000000000000000041, A00000000000000000000042, A00000000000000000000043, A00000000000000000000044, );
         };
         A00000000000000000000024 = {
             isa = PBXGroup;
@@ -127,7 +130,7 @@
         A00000000000000000000026 = {
             isa = PBXSourcesBuildPhase;
             buildActionMask = 2147483647;
-            files = (A00000000000000000000001, A00000000000000000000002, A00000000000000000000003, A00000000000000000000004, A00000000000000000000005, A0000000000000000000000A, A0000000000000000000000B, A0000000000000000000000C, );
+            files = (A00000000000000000000001, A00000000000000000000002, A00000000000000000000003, A00000000000000000000004, A00000000000000000000005, A0000000000000000000000A, A0000000000000000000000B, A0000000000000000000000C, A0000000000000000000000D, );
             runOnlyForDeploymentPostprocessing = 0;
         };
 /* End PBXSourcesBuildPhase section */
