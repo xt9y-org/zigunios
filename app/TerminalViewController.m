@@ -4,6 +4,8 @@
 #include <math.h>
 #import "shell.h"
 #import "git_bridge.h"
+#import "wasm_bridge.h"
+#include <string.h>
 
 // Minimal native source editor, no embedded web view or external app.
 @interface ZUEditorController : UIViewController
@@ -159,6 +161,16 @@
 
 @end
 
+static char *zu_run_external(void *context, ZUShell *shell,
+                             int argc, const char *const argv[])
+{
+    if (argc > 0 && !strcmp(argv[0], "git"))
+        return zu_git_execute(context, shell, argc, argv);
+    if (argc > 0 && !strcmp(argv[0], "wasm"))
+        return zu_wasm_execute(context, shell, argc, argv);
+    return strdup("unknown external command\n");
+}
+
 @interface TerminalViewController : UIViewController <UITextFieldDelegate, UIDocumentPickerDelegate>
 @property (nonatomic, strong) UITextView *transcript;
 @property (nonatomic, strong) UILabel *prompt;
@@ -253,9 +265,9 @@
                                                                inDomains:NSUserDomainMask].firstObject;
     NSString *root = [[documents URLByAppendingPathComponent:@"root" isDirectory:YES] path];
     _ready = zu_shell_init(&_shell, root.fileSystemRepresentation);
-    if (_ready) zu_shell_set_external(&_shell, zu_git_execute, NULL);
+    if (_ready) zu_shell_set_external(&_shell, zu_run_external, NULL);
     self.transcript.text = _ready
-        ? @"zigunios 0.2  |  workspace + Git\nType 'help' for available commands.\nProjects persist in Files > On My iPad > Zigunios > root.\n\n"
+        ? @"zigunios 0.3  |  Git / wasm / Metal\nType 'help' for available commands.\nProjects persist in Files > On My iPad > Zigunios > root.\n\n"
         : @"Failed to create the local workspace.\n";
     [self updatePrompt];
 }
