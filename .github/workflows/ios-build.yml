@@ -1289,6 +1289,7 @@ jobs:
             mkdir -p "build/Payload/$APP_NAME/Frameworks"
             cp -R vendor/compiler-ios/frameworks/*.framework "build/Payload/$APP_NAME/Frameworks/"
             cp -R vendor/compiler-ios/wasi-sysroot "build/Payload/$APP_NAME/wasi-sysroot"
+            cp -R vendor/compiler-ios/clang-include "build/Payload/$APP_NAME/clang-include"
             cp scripts/commandDictionary.plist "build/Payload/$APP_NAME/commandDictionary.plist"
             # Pin the original xt9y/build.c v1.x API for interpreted build.c evaluation.
             curl --fail --location --retry 3 --silent --show-error \
