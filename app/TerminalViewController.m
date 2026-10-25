@@ -6,6 +6,7 @@
 #import "git_bridge.h"
 #import "wasm_bridge.h"
 #import "project.h"
+#import "setup_bridge.h"
 #include <string.h>
 
 // Minimal native source editor, no embedded web view or external app.
@@ -171,6 +172,8 @@ static char *zu_run_external(void *context, ZUShell *shell,
         return zu_wasm_execute(context, shell, argc, argv);
     if (argc > 0 && !strcmp(argv[0], "project"))
         return zu_project_execute(context, shell, argc, argv);
+    if (argc > 0 && !strcmp(argv[0], "setup"))
+        return zu_setup_execute(context, shell, argc, argv);
     return strdup("unknown external command\n");
 }
 
