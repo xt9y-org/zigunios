@@ -1,6 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import "shell.h"
+#import "git_bridge.h"
 
 @interface TerminalViewController : UIViewController <UITextFieldDelegate, UIDocumentPickerDelegate>
 @property (nonatomic, strong) UITextView *transcript;
@@ -96,8 +97,9 @@
                                                                inDomains:NSUserDomainMask].firstObject;
     NSString *root = [[documents URLByAppendingPathComponent:@"root" isDirectory:YES] path];
     _ready = zu_shell_init(&_shell, root.fileSystemRepresentation);
+    if (_ready) zu_shell_set_external(&_shell, zu_git_execute, NULL);
     self.transcript.text = _ready
-        ? @"zigunios 0.1  |  native iPad terminal\nType 'help' for available commands.\nProjects persist in Files > On My iPad > Zigunios > root.\n\n"
+        ? @"zigunios 0.2  |  workspace + Git\nType 'help' for available commands.\nProjects persist in Files > On My iPad > Zigunios > root.\n\n"
         : @"Failed to create the local workspace.\n";
     [self updatePrompt];
 }
@@ -118,19 +120,28 @@
 
 - (BOOL)textFieldShouldReturn:(UITextField *)textField
 {
-    if (!_ready) return YES;
-    NSString *input = textField.text ?: @"";
-    [self append:[NSString stringWithFormat:@"%@ %@\n", self.prompt.text, input]];
-    int clear = 0;
-    char *result = zu_shell_execute(&_shell, input.UTF8String, &clear);
-    if (clear) self.transcript.text = @"";
-    if (result) {
-        NSString *response = [NSString stringWithUTF8String:result];
-        [self append:response ?: @"(non UTF-8 output)\n"];
-        free(result);
-    }
+    if (!_ready || !self.input.enabled) return NO;
+    NSString *command = [textField.text copy] ?: @"";
+    if (!command.length) return YES;
+    [self append:[NSString stringWithFormat:@"%@ %@\n", self.prompt.text, command]];
     textField.text = @"";
-    [self updatePrompt];
+    self.input.enabled = NO;
+
+    // Clone/fetch can take time: never run shell work on UIKit's thread.
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        int clear = 0;
+        char *result = zu_shell_execute(&self->_shell, command.UTF8String, &clear);
+        NSString *response = result ? [[NSString alloc] initWithUTF8String:result] : nil;
+        free(result);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (clear) self.transcript.text = @"";
+            if (response.length) [self append:response];
+            else if (!response) [self append:@"(command failed to return UTF-8)\n"];
+            [self updatePrompt];
+            self.input.enabled = YES;
+            [self.input becomeFirstResponder];
+        });
+    });
     return YES;
 }
 
