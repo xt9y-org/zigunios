@@ -66,13 +66,13 @@ An iPad-compatible `c` runner must introduce an **in-process compiler + interpre
 
 Practical implementation stages:
 
-1. Port or bundle a native **signed Clang/LLVM compiler frontend** that can emit `wasm32-wasi`. [a-Shell](https://github.com/holzschu/a-shell) demonstrates on-device C/C++ to WASM compilation; its licenses and frameworks need separate integration work.
-2. Add a WASI sysroot, linker (`wasm-ld`) and archive support to produce linked programs without spawning another executable.
+1. **Implemented, device validation pending:** Bundle a signed Clang/LLVM frontend that emits wasm32-wasi. Zigunios uses open-source a-Shell LLVM 14 compiler frameworks and a WASI 20 sysroot.
+2. **WASI sysroot and wasm-ld included; multi-archive linking pending.** The initial compiler handles one C file.
 3. Expose compiler commands through Zigunios terminal; **do not label the command `zig cc` unless it uses a real Zig-supported toolchain**, not an unrelated compiler renamed to Zig.
 4. Adapt the `c` build-description compiler to WASI and inspect its exported build graph through stable host callbacks. Replace per-process compiler jobs with in-process invocations and run program artifacts using wasm3 or another interpreter.
 5. Add native iPad graphics integration for supported targets. A Metal triangle proving a display surface exists does **not** mean a desktop OpenGL engine will run.
 
-The *current implementation has none of these compiler stages*. `zig`, `c build`, `cmake` and `make` must continue reporting unavailable, not silently pretend to compile.
+**v0.5 status:** A native iOS Clang/LLD 14 command bridge and WASI 20 sysroot are now bundled. `cc file.c` produces a WebAssembly program, subject to device verification. A `c` build adapter evaluates build.c through the original `cbuild.h` API, but can only compile and run simple C targets with a single source file and no native archives. The full original build system still needs additional work. Zig, CMake and Make remain unavailable; HorseEngine.cpp is still unsupported.
 
 ## Horse graphics problem is independent
 
@@ -82,6 +82,6 @@ Even when WASM C++ compilation is implemented, the desktop R3D game **cannot run
 
 ## Device verification
 
-In the v0.4 app, test the Git/source-fetch stage with `setup check`, then `setup deps`. The above Git commands and inspector are implemented and the iOS app is built in GitHub Actions, but **actual clone/submodule runtime behavior on your physical iPad has not been independently confirmed yet**. The existing `wasm demo` and `metal demo` have been reported working on the device.
+In the v0.4 app, test the Git/source-fetch stage with `setup check`, then `setup deps`. The above Git commands, Clang/WASI adapter and inspector are built in GitHub Actions, but **their runtime behavior on your physical iPad has not been independently confirmed yet**. The existing `wasm demo` and `metal demo` have been reported working on the device.
 
 Avoid deleting the app before installing an updated IPA if the project files must remain intact.
