@@ -1,5 +1,6 @@
 #import <UIKit/UIKit.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import <MetalKit/MetalKit.h>
 #import "shell.h"
 #import "git_bridge.h"
 
@@ -73,6 +74,88 @@
         [self presentViewController:alert animated:YES completion:nil];
     }
 }
+@end
+
+// A native graphics surface inside Zigunios, not a separate app/window manager.
+@interface ZUMetalController : UIViewController <MTKViewDelegate>
+@property (nonatomic, strong) MTKView *surface;
+@property (nonatomic, strong) id<MTLCommandQueue> queue;
+@property (nonatomic, strong) id<MTLRenderPipelineState> pipeline;
+@end
+
+@implementation ZUMetalController
+
+- (void)viewDidLoad
+{
+    [super viewDidLoad];
+    self.title = @"Metal";
+    self.view.backgroundColor = UIColor.blackColor;
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
+        initWithBarButtonSystemItem:UIBarButtonSystemItemDone
+                            target:self action:@selector(closePreview)];
+    id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+    if (!device) return;
+    self.surface = [[MTKView alloc] initWithFrame:CGRectZero device:device];
+    self.surface.translatesAutoresizingMaskIntoConstraints = NO;
+    self.surface.colorPixelFormat = MTLPixelFormatBGRA8Unorm;
+    self.surface.clearColor = MTLClearColorMake(0.03, 0.04, 0.07, 1);
+    self.surface.preferredFramesPerSecond = 60;
+    self.surface.delegate = self;
+    [self.view addSubview:self.surface];
+    [NSLayoutConstraint activateConstraints:@[
+        [self.surface.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
+        [self.surface.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [self.surface.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [self.surface.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor]
+    ]];
+    self.queue = [device newCommandQueue];
+    NSString *source = @"#include <metal_stdlib>\n"
+        @"using namespace metal;\n"
+        @"struct Out { float4 position [[position]]; float4 color; };\n"
+        @"vertex Out vert(uint v [[vertex_id]], constant float &phase [[buffer(0)]]) {\n"
+        @"  float2 p[3] = {float2(0.0,0.65), float2(-0.65,-0.5), float2(0.65,-0.5)};\n"
+        @"  float c = cos(phase), s = sin(phase);\n"
+        @"  float2 q = float2(p[v].x*c - p[v].y*s, p[v].x*s + p[v].y*c);\n"
+        @"  Out o; o.position = float4(q,0,1);\n"
+        @"  o.color = float4(v==0 ? 1.0 : 0.1, v==1 ? 1.0 : 0.2, v==2 ? 1.0 : 0.4, 1);\n"
+        @"  return o;\n"
+        @"}\n"
+        @"fragment float4 frag(Out in [[stage_in]]) { return in.color; }\n";
+    NSError *error = nil;
+    id<MTLLibrary> lib = [device newLibraryWithSource:source options:nil error:&error];
+    if (!lib) { NSLog(@"Metal shader: %@", error); return; }
+    MTLRenderPipelineDescriptor *descriptor = [MTLRenderPipelineDescriptor new];
+    descriptor.vertexFunction = [lib newFunctionWithName:@"vert"];
+    descriptor.fragmentFunction = [lib newFunctionWithName:@"frag"];
+    descriptor.colorAttachments[0].pixelFormat = self.surface.colorPixelFormat;
+    self.pipeline = [device newRenderPipelineStateWithDescriptor:descriptor error:&error];
+    if (!self.pipeline) NSLog(@"Metal pipeline: %@", error);
+}
+
+- (void)closePreview
+{
+    [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+- (void)mtkView:(MTKView *)view drawableSizeWillChange:(CGSize)size { (void)view; (void)size; }
+
+- (void)drawInMTKView:(MTKView *)view
+{
+    if (!self.pipeline || !self.queue) return;
+    MTLRenderPassDescriptor *pass = view.currentRenderPassDescriptor;
+    id<CAMetalDrawable> drawable = view.currentDrawable;
+    if (!pass || !drawable) return;
+    id<MTLCommandBuffer> commands = [self.queue commandBuffer];
+    id<MTLRenderCommandEncoder> render = [commands renderCommandEncoderWithDescriptor:pass];
+    float phase = (float)[NSDate date].timeIntervalSinceReferenceDate;
+    [render setRenderPipelineState:self.pipeline];
+    [render setVertexBytes:&phase length:sizeof(phase) atIndex:0];
+    [render drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+    [render endEncoding];
+    [commands presentDrawable:drawable];
+    [commands commit];
+}
+
 @end
 
 @interface TerminalViewController : UIViewController <UITextFieldDelegate, UIDocumentPickerDelegate>
@@ -195,6 +278,15 @@
     if (!_ready || !self.input.enabled) return NO;
     NSString *command = [textField.text copy] ?: @"";
     if (!command.length) return YES;
+    if ([command isEqualToString:@"metal demo"]) {
+        [self append:[NSString stringWithFormat:@"%@ metal demo\n", self.prompt.text]];
+        textField.text = @"";
+        UINavigationController *nav = [[UINavigationController alloc]
+            initWithRootViewController:[ZUMetalController new]];
+        nav.modalPresentationStyle = UIModalPresentationFullScreen;
+        [self presentViewController:nav animated:YES completion:nil];
+        return YES;
+    }
     if ([command hasPrefix:@"edit "]) {
         NSString *name = [[command substringFromIndex:5]
             stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
