@@ -1,8 +1,8 @@
 # Zigunios
 
-A small iPad development-workstation experiment: native UIKit terminal, persistent Unix-style workspace, and a future C/C++ compiler and in-app program runner. **Not an iOS replacement, Linux kernel, or working C compiler yet.**
+A small iPad development-workstation experiment: native UIKit terminal, persistent Unix-style workspace, and a future C/C++ compiler and in-app program runner. **Not an iOS replacement or Linux kernel.** Native C-to-WebAssembly compilation is experimental and requires device validation.
 
-## Current development build (v0.4)
+## Current development build (v0.5)
 
 - UIKit iPad terminal with keyboard, import, and a persistent Unix-style workspace.
 - Shell commands: `pwd`, `cd`, `ls`, `mkdir`, `touch`, `cat`, `cp`, `mv`, `rm`, `rmdir`, `grep`, `head`, `wc`, `echo`, `clear`, `uname`, `whoami`, `date`, `help`.
@@ -14,7 +14,9 @@ A small iPad development-workstation experiment: native UIKit terminal, persiste
 - `edit filename` opens a native UTF-8 source editor with Save/Cancel.
 - `wasm demo` runs a bundled example WebAssembly module; `wasm file.wasm` runs imported WASI Preview 1 modules through the **wasm3 interpreter** (no JIT).
 - `metal demo` opens a native GPU-rendered triangle inside the same iPad app and returns to the terminal with Done.
-- Private repos requiring authentication, Git SSH, Git push/pull, pipelines, POSIX process spawning, Zig/CMake/Make, arbitrary native executables, and compiling/running graphics projects **are not implemented**. Local `git add` / `git commit` work with configured repository identity.
+- **Experimental on-device Clang 14/LLD:** `cc hello.c` compiles C to `hello.wasm`. The compiler is a bundled signed iOS framework; the output is interpreted by wasm3, without JIT.
+- **Experimental `c` build compatibility:** `c init`, `c build`, `c run` and `c build run`. The app compiles your real `build.c` using pinned upstream `cbuild.h`, evaluates it as WebAssembly and builds **one C source with no external linked libraries**. Complex source graphs and platform-specific flags are deliberately rejected.
+- Not supported: authenticated Git, Git SSH/push/pull, pipes, unrestricted POSIX subprocesses, standalone Zig, Make/CMake, native executables, multi-file C/C++ build graphs, or arbitrary graphical applications. Local `git add` / `git commit` use your repository identity.
 
 Try a public project:
 
@@ -32,11 +34,31 @@ metal demo
 ls
 ```
 
-The `c build`, `zig`, `cmake` and `make` commands currently return **not implemented**. The real `xt9y/build.c` needs executable build modules and subprocess support; the next substantial stage is an in-process compiler and build graph runtime. WASM3 executes modules but is not a compiler. See [HorseEngine.cpp integration audit](docs/HORSE.md). iPadOS doesn't allow executing newly compiled unsigned ARM64 binaries; implementing compilation requires a compiler linked into the signed host app and an interpreted runtime (such as WebAssembly). See [the architecture](docs/ARCHITECTURE.md).
+The C compiler and simple `c build` path are **experimental**, not physically verified. Native desktop projects (including HorseEngine.cpp) still require significant additional POSIX/CMake/C++ and graphics compatibility work. `zig`, `cmake` and `make` still report unavailable. See [HorseEngine.cpp integration audit](docs/HORSE.md). iPadOS doesn't allow executing newly compiled unsigned ARM64 binaries; implementing compilation requires a compiler linked into the signed host app and an interpreted runtime (such as WebAssembly). See [the architecture](docs/ARCHITECTURE.md).
 
 ### Build requirements
 
-The GitHub Actions workflow automatically downloads and builds **libgit2 v1.9.7** (Apple SecureTransport) and **wasm3 v0.9.0** for iOS ARM64. For a local Xcode build, run `bash scripts/build-libgit2-ios.sh` and `bash scripts/build-wasm3-ios.sh` first (CMake + Ninja). No prebuilt binary dependency is checked into this repository.
+The GitHub Actions workflow automatically downloads and builds **libgit2 v1.9.7** (Apple SecureTransport), **wasm3 v0.9.0**, and a-Shell's iOS LLVM 14/LLD frameworks with the WASI 20 sysroot for iOS ARM64. For a local Xcode build, run `bash scripts/build-libgit2-ios.sh` and `bash scripts/build-wasm3-ios.sh` first (CMake + Ninja). No prebuilt binary dependency is checked into this repository.
+
+## Test C compilation on the iPad
+
+Install v0.5 with a sideloading tool that **signs embedded frameworks** as well as the app, then open the Zigunios terminal:
+
+```sh
+cc --doctor
+cc --version
+cd /home/projects
+mkdir cc-test
+cd cc-test
+c init
+c build run
+```
+
+Expected goal: the demo prints `Hello from Zigunios C!` followed by `[wasm exit 0]`. If compiler initialization fails, capture the exact output of `cc --version`. This has **not** been confirmed on a physical iPad. The previous `wasm demo` and `metal demo` were confirmed.
+
+Use `cc source.c [-o output.wasm]` to build a single C file, then `wasm output.wasm` to run it. `c build run` executes a subset of the real `xt9y/build.c` build description on a WASI interpreter. It **does not** yet support HorseEngine's R3D/Box3D libraries, C++17, native platform frameworks or desktop OpenGL.
+
+More implementation details: [compiler documentation](docs/COMPILER.md).
 
 ## HorseEngine.cpp source fetch
 
@@ -97,4 +119,4 @@ zig cc -std=c11 -Icore core/shell.c tools/shell_cli.c -o shell-cli
 
 See [the mind map and milestones](docs/ARCHITECTURE.md). The host OS is iPadOS. Zig is proposed as a future bundled compiler frontend/toolchain, **not a custom kernel or required runtime**. Main graphical and shell UI uses Objective-C; the shell core is portable C.
 
-The iOS GitHub Actions build is the source of truth for device compilation. This development version has not yet been tested on a physical iPad after the Git integration.
+GitHub Actions verifies Xcode compilation and IPA packaging. Clang, Git submodules, and the experimental C build runtime still require physical-device verification.
