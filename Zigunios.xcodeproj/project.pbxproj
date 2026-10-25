@@ -160,7 +160,7 @@
                 INFOPLIST_FILE = app/Info.plist;
                 GENERATE_INFOPLIST_FILE = NO;
                 HEADER_SEARCH_PATHS = ("$(SRCROOT)/core", "$(SRCROOT)/vendor/libgit2-ios/include", "$(inherited)", );
-                OTHER_LDFLAGS = ("$(inherited)", "$(SRCROOT)/vendor/libgit2-ios/lib/libgit2.a", "-framework", "Security", "-framework", "CoreFoundation", "-lz", );
+                OTHER_LDFLAGS = ("$(inherited)", "$(SRCROOT)/vendor/libgit2-ios/lib/libgit2.a", "-framework", "Security", "-framework", "CoreFoundation", "-lz", "-liconv", );
                 TARGETED_DEVICE_FAMILY = 2;
                 IPHONEOS_DEPLOYMENT_TARGET = 17.0;
                 MARKETING_VERSION = 0.2.0;
@@ -178,7 +178,7 @@
                 INFOPLIST_FILE = app/Info.plist;
                 GENERATE_INFOPLIST_FILE = NO;
                 HEADER_SEARCH_PATHS = ("$(SRCROOT)/core", "$(SRCROOT)/vendor/libgit2-ios/include", "$(inherited)", );
-                OTHER_LDFLAGS = ("$(inherited)", "$(SRCROOT)/vendor/libgit2-ios/lib/libgit2.a", "-framework", "Security", "-framework", "CoreFoundation", "-lz", );
+                OTHER_LDFLAGS = ("$(inherited)", "$(SRCROOT)/vendor/libgit2-ios/lib/libgit2.a", "-framework", "Security", "-framework", "CoreFoundation", "-lz", "-liconv", );
                 TARGETED_DEVICE_FAMILY = 2;
                 IPHONEOS_DEPLOYMENT_TARGET = 17.0;
                 MARKETING_VERSION = 0.2.0;
