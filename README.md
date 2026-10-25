@@ -2,16 +2,30 @@
 
 A small iPad development-workstation experiment: native UIKit terminal, persistent Unix-style workspace, and a future C/C++ compiler and in-app program runner. **Not an iOS replacement, Linux kernel, or working C compiler yet.**
 
-## What works in v0.1
+## Current development build (v0.2)
 
-- Native, dark iPad terminal UI (Objective-C/UIKit), hardware/software keyboard input.
-- Portable C11 shell core with `pwd`, `cd`, `ls`, `mkdir`, `touch`, `cat`, `echo`, `rm`, `rmdir`, `clear`, `uname`, `whoami`, `date`, `help`.
-- Basic quoting and `echo text > file` / `>>` redirection.
-- Persistent sandbox rooted at `/` (mapped to app `Documents/root`), starting directory `/home` and project folder `/home/projects`.
-- Files app sharing and Import files button (imports to `/home/projects`).
-- iPadOS 27-ready `UIScene` lifecycle and launch storyboard.
+- UIKit iPad terminal with keyboard, import, and a persistent Unix-style workspace.
+- Shell commands: `pwd`, `cd`, `ls`, `mkdir`, `touch`, `cat`, `cp`, `mv`, `rm`, `rmdir`, `grep`, `head`, `wc`, `echo`, `clear`, `uname`, `whoami`, `date`, `help`.
+- Real Git over HTTPS with statically linked **libgit2**: `git clone`, `git status`, `git log`, `git branch`, and `git fetch`. This creates normal Git repositories with a real `.git` directory, not extracted ZIP archives.
+- Git networking and filesystem commands run off the main UI thread.
+- Private repos requiring authentication, Git SSH, Git push/pull/commit, interactive editors, pipes, POSIX process spawning, Zig/CMake/Make, arbitrary executables, and graphics output **are not implemented**.
 
-**Not implemented:** `git clone`, Zig compiler, `c build run`, Make/CMake, arbitrary process execution, OpenGL/Metal game execution, POSIX-compatible pipelines and job control. These are deliberately tracked as future milestones rather than mocked as working commands.
+Try a public project:
+
+```sh
+cd /home/projects
+git clone https://github.com/libgit2/clar.git
+cd clar
+git status
+git log
+ls
+```
+
+The `c`, `zig`, `cmake` and `make` commands currently return **not implemented**. iPadOS doesn't allow executing newly compiled unsigned ARM64 binaries; implementing compilation requires a compiler linked into the signed host app and an interpreted runtime (such as WebAssembly). See [the architecture](docs/ARCHITECTURE.md).
+
+### Build requirements
+
+The GitHub Actions workflow automatically downloads and builds **libgit2 v1.9.7 for iOS ARM64** with Apple's SecureTransport. For a local Xcode build run `bash scripts/build-libgit2-ios.sh` first (needs CMake and Ninja). No prebuilt binary dependency is checked into this repository.
 
 ## Download an IPA from GitHub Actions
 
@@ -59,4 +73,4 @@ zig cc -std=c11 -Icore core/shell.c tools/shell_cli.c -o shell-cli
 
 See [the mind map and milestones](docs/ARCHITECTURE.md). The host OS is iPadOS. Zig is proposed as a future bundled compiler frontend/toolchain, **not a custom kernel or required runtime**. Main graphical and shell UI uses Objective-C; the shell core is portable C.
 
-Current code is a tested portable shell prototype and an unverified iOS Xcode project: Xcode/device compilation cannot be run from this non-macOS environment. Please report the first Xcode build error if any.
+The iOS GitHub Actions build is the source of truth for device compilation. This development version has not yet been tested on a physical iPad after the Git integration.
