@@ -196,8 +196,9 @@ char *zu_compiler_execute(void *context, ZUShell *shell, int argc, const char *c
             [NSString stringWithFormat:@"zu-cc-%@.o", NSUUID.UUID.UUIDString]];
         NSString *resources = [[NSBundle mainBundle] resourcePath];
         NSString *compile = [NSString stringWithFormat:
-            @"clang --target=wasm32-wasi -std=c11 -O0 -c %@ -o %@ --sysroot=%@ -I %@",
-            quote(inputPath), quote(object), quote(sysroot), quote(resources)];
+            @"clang --target=wasm32-wasi -std=c11 -O0 -c %@ -o %@ --sysroot=%@ -I %@ -isystem %@",
+            quote(inputPath), quote(object), quote(sysroot), quote(resources),
+            quote([resources stringByAppendingPathComponent:@"clang-include"])];
         NSString *messages = invoke(compile);
         BOOL good = [[NSFileManager defaultManager] fileExistsAtPath:object];
         if (good) {
