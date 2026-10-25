@@ -56,13 +56,118 @@ static const char *repo_name(const char *url)
     return last ? last + 1 : url;
 }
 
+
+/* libgit2 remains inside the app process; no executable Git binary is spawned. */
+typedef struct {
+    Message *out;
+    int depth;
+    unsigned count;
+} SubmoduleContext;
+
+static int update_submodules(git_repository *repository, Message *out, int depth);
+
+static int on_submodule(git_submodule *submodule, const char *name, void *payload)
+{
+    SubmoduleContext *ctx = payload;
+    if (++ctx->count > 256) {
+        append(ctx->out, "git submodule: too many submodules\n");
+        return -1;
+    }
+    git_submodule_update_options options = GIT_SUBMODULE_UPDATE_OPTIONS_INIT;
+    // Fetch the exact gitlink commit, even if no current branch points to it.
+    int code = git_submodule_update(submodule, 1, &options);
+    if (code != 0) {
+        git_failure(ctx->out, name, code);
+        return code;
+    }
+    append(ctx->out, "Submodule ready: %s\n", name);
+    git_repository *nested = NULL;
+    if (git_submodule_open(&nested, submodule) == 0) {
+        code = update_submodules(nested, ctx->out, ctx->depth + 1);
+        git_repository_free(nested);
+        if (code) return code;
+    }
+    return 0;
+}
+
+static int update_submodules(git_repository *repository, Message *out, int depth)
+{
+    if (depth > 8) {
+        append(out, "git submodule: recursion limit reached\n");
+        return -1;
+    }
+    SubmoduleContext context = {.out = out, .depth = depth, .count = 0};
+    return git_submodule_foreach(repository, on_submodule, &context);
+}
+
+static int switch_ref(git_repository *repo, const char *refname, Message *out)
+{
+    char target[ZU_PATH_MAX];
+    git_reference *reference = NULL;
+    git_reference *branch = NULL;
+    git_object *commit = NULL;
+    int code = 0;
+    if (snprintf(target, sizeof(target), "refs/remotes/origin/%s", refname) < (int)sizeof(target))
+        code = git_reference_lookup(&reference, repo, target);
+    else code = -1;
+
+    if (code == 0) {
+        // Preserve the upstream tracking branch on a normal --branch checkout.
+        const git_oid *oid = git_reference_target(reference);
+        if (!oid) { code = -1; goto cleanup; }
+        code = git_object_lookup(&commit, repo, oid, GIT_OBJECT_COMMIT);
+        if (code) goto cleanup;
+        code = git_branch_create(&branch, repo, refname, (git_commit *)commit, 0);
+        if (code) goto cleanup;
+        code = git_repository_set_head(repo, git_reference_name(branch));
+    } else {
+        git_reference_free(reference);
+        reference = NULL;
+        if (snprintf(target, sizeof(target), "refs/tags/%s", refname) >= (int)sizeof(target)) {
+            append(out, "git: tag name too long\n"); return -1;
+        }
+        // A shallow clone of the default branch does not necessarily fetch a tag.
+        git_remote *remote = NULL;
+        git_fetch_options fetch = GIT_FETCH_OPTIONS_INIT;
+        fetch.depth = 1;
+        if (git_remote_lookup(&remote, repo, "origin") == 0) {
+            char spec[ZU_PATH_MAX];
+            if (snprintf(spec, sizeof(spec), "+refs/tags/%s:refs/tags/%s",
+                         refname, refname) < (int)sizeof(spec)) {
+                char *items[] = {spec};
+                git_strarray refs = {.strings = items, .count = 1};
+                (void)git_remote_fetch(remote, &refs, &fetch, NULL);
+            }
+        }
+        git_remote_free(remote);
+        code = git_reference_lookup(&reference, repo, target);
+        if (code != 0) {
+            append(out, "git: branch or tag not found: %s\n", refname);
+            goto cleanup;
+        }
+        code = git_reference_peel(&commit, reference, GIT_OBJECT_COMMIT);
+        if (code) goto cleanup;
+        code = git_repository_set_head_detached(repo, git_object_id(commit));
+    }
+    if (!code) {
+        git_checkout_options options = GIT_CHECKOUT_OPTIONS_INIT;
+        options.checkout_strategy = GIT_CHECKOUT_SAFE;
+        code = git_checkout_head(repo, &options);
+    }
+cleanup:
+    git_object_free(commit);
+    git_reference_free(reference);
+    git_reference_free(branch);
+    return code;
+}
+
 char *zu_git_execute(void *context, ZUShell *shell, int argc, const char *const argv[])
 {
     (void)context;
     Message out = {.data = calloc(ZU_GIT_OUTPUT, 1), .length = 0};
     if (!out.data) return NULL;
     if (argc < 2) {
-        append(&out, "git commands: clone <https-url> [folder], status, log, branch, fetch, diff, config, add, commit\n");
+        append(&out, "git: clone [--depth 1] [--branch vX] [--recurse-submodules], submodule update --init --recursive, status, log, branch, fetch, diff, config, add, commit\n");
         return out.data;
     }
 
@@ -72,46 +177,98 @@ char *zu_git_execute(void *context, ZUShell *shell, int argc, const char *const 
     int code = 0;
 
     if (!strcmp(cmd, "clone")) {
-        if (argc < 3 || argc > 4) {
-            append(&out, "usage: git clone HTTPS_URL [directory]\n");
+        const char *url = NULL, *destination = NULL, *branch = NULL;
+        int depth = 0, recursive = 0;
+        for (int i = 2; i < argc; i++) {
+            const char *arg = argv[i];
+            if (!strcmp(arg, "--depth") && i + 1 < argc) {
+                depth = atoi(argv[++i]);
+            } else if (!strncmp(arg, "--depth=", 8)) {
+                depth = atoi(arg + 8);
+            } else if ((!strcmp(arg, "--branch") || !strcmp(arg, "-b")) && i + 1 < argc) {
+                branch = argv[++i];
+            } else if (!strncmp(arg, "--branch=", 9)) {
+                branch = arg + 9;
+            } else if (!strcmp(arg, "--recurse-submodules") || !strcmp(arg, "--recursive")) {
+                recursive = 1;
+            } else if (arg[0] == '-') {
+                append(&out, "git clone: unsupported option %s\n", arg);
+                goto done;
+            } else if (!url) url = arg;
+            else if (!destination) destination = arg;
+            else { append(&out, "git clone: too many paths\n"); goto done; }
+        }
+        if (!url || strncmp(url, "https://", 8)) {
+            append(&out, "usage: git clone [--depth N] [--branch TAG] [--recurse-submodules] HTTPS_URL [directory]\n");
             goto done;
         }
-        const char *url = argv[2];
-        if (strncmp(url, "https://", 8)) {
-            append(&out, "git clone: only HTTPS repositories are supported in this build\n");
-            goto done;
+        if (depth < 0 || depth > 5000) {
+            append(&out, "git clone: depth must be in range 1..5000\n"); goto done;
         }
         char name[ZU_PATH_MAX], guest[ZU_PATH_MAX], path[ZU_PATH_MAX];
-        if (argc == 4) {
-            if (strlen(argv[3]) >= sizeof(name)) {
-                append(&out, "git clone: destination path too long\n"); goto done;
+        if (destination) {
+            if (strlen(destination) >= sizeof(name)) {
+                append(&out, "git clone: destination too long\n"); goto done;
             }
-            strcpy(name, argv[3]);
+            strcpy(name, destination);
         } else {
             const char *base = repo_name(url);
             size_t length = strcspn(base, "?#");
             if (length > 4 && !strncmp(base + length - 4, ".git", 4)) length -= 4;
-            if (length == 0 || length >= sizeof(name)) {
+            if (!length || length >= sizeof(name)) {
                 append(&out, "git clone: invalid repository URL\n"); goto done;
             }
             memcpy(name, base, length);
             name[length] = 0;
         }
-        if (!strcmp(name, ".") || !strcmp(name, "..") ||
-            !zu_shell_resolve_path(shell, name, guest, path) || !strcmp(guest, "/")) {
-            append(&out, "git clone: invalid or unsafe destination path\n"); goto done;
+        if (!zu_shell_resolve_path(shell, name, guest, path) || !strcmp(guest, "/")) {
+            append(&out, "git clone: unsafe destination\n"); goto done;
         }
         struct stat st;
         if (lstat(path, &st) == 0) {
-            append(&out, "git clone: destination already exists: %s\n", guest); goto done;
+            append(&out, "git clone: destination exists: %s\n", guest); goto done;
         }
         git_clone_options options = GIT_CLONE_OPTIONS_INIT;
+        options.fetch_opts.depth = depth;
         append(&out, "Cloning into '%s'...\n", guest);
         code = git_clone(&repo, url, path, &options);
-        if (code != 0) {
+        if (code == 0 && branch) code = switch_ref(repo, branch, &out);
+        if (code == 0 && recursive) code = update_submodules(repo, &out, 0);
+        if (code) {
             git_failure(&out, "clone", code);
-            append(&out, "A failed clone may have left a partial folder. Remove it before retrying.\n");
-        } else append(&out, "Clone complete. cd %s\n", name);
+            append(&out, "Clone incomplete. Check the directory before retrying.\n");
+        } else {
+            append(&out, "Clone ready: %s\n", guest);
+        }
+    } else if (!strcmp(cmd, "submodule")) {
+        if (argc < 3 || strcmp(argv[2], "update")) {
+            append(&out, "usage: git submodule update --init --recursive\n"); goto done;
+        }
+        for (int i = 3; i < argc; ++i) {
+            if (strcmp(argv[i], "--init") && strcmp(argv[i], "--recursive")) {
+                append(&out, "git submodule: unsupported option %s\n", argv[i]); goto done;
+            }
+        }
+        if (repo_here(shell, &repo, &out)) goto done;
+        code = update_submodules(repo, &out, 0);
+        if (code) git_failure(&out, "submodule update", code);
+    } else if (!strcmp(cmd, "-C")) {
+        if (argc < 6 || strcmp(argv[3], "submodule") || strcmp(argv[4], "update")) {
+            append(&out, "usage: git -C DIR submodule update --init --recursive\n"); goto done;
+        }
+        for (int i = 5; i < argc; ++i) {
+            if (strcmp(argv[i], "--init") && strcmp(argv[i], "--recursive")) {
+                append(&out, "git submodule: unsupported option %s\n", argv[i]); goto done;
+            }
+        }
+        char guest[ZU_PATH_MAX], host[ZU_PATH_MAX];
+        if (!zu_shell_resolve_path(shell, argv[2], guest, host)) {
+            append(&out, "git -C: unsafe path\n"); goto done;
+        }
+        code = git_repository_open_ext(&repo, host, GIT_REPOSITORY_OPEN_CROSS_FS, shell->root);
+        if (code) { git_failure(&out, "-C", code); goto done; }
+        code = update_submodules(repo, &out, 0);
+        if (code) git_failure(&out, "submodule update", code);
     } else if (!strcmp(cmd, "status")) {
         if (argc != 2) { append(&out, "usage: git status\n"); goto done; }
         if (repo_here(shell, &repo, &out)) goto done;
@@ -279,7 +436,7 @@ done_add:
         git_tree_free(tree);
         git_index_free(index);
     } else {
-        append(&out, "git %s: not implemented. Use clone, status, log, branch, fetch, diff, config, add, commit\n", cmd);
+        append(&out, "git %s: not implemented. Use clone, submodule, status, log, branch, fetch, diff, config, add, commit\n", cmd);
     }
 
 done:
