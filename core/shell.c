@@ -355,7 +355,7 @@ char *zu_shell_execute(ZUShell *shell, const char *line, int *clear_screen)
         struct tm tm_value;
         if (localtime_r(&now, &tm_value) && strftime(formatted, sizeof(formatted), "%Y-%m-%d %H:%M:%S %Z", &tm_value))
             say(&out, "%s\n", formatted);
-    } else if (!strcmp(cmd, "git") && shell->external) {
+    } else if ((!strcmp(cmd, "git") || !strcmp(cmd, "wasm")) && shell->external) {
         const char *argv[ZU_WORDS];
         for (int i = 0; i < argc; i++) argv[i] = args[i];
         char *answer = shell->external(shell->external_context, shell, argc, argv);
